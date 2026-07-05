@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "192462686702",
+    "project_id": "bhoomcarracing",
+    "storage_bucket": "bhoomcarracing.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:192462686702:android:c21e343ba193ea1abd26ff",
+        "android_client_info": {
+          "package_name": "com.AAR.doomcarracing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyrz72WhWFAfTj9935qft2lP7iOptd9Yg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
