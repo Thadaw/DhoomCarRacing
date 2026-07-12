@@ -1,0 +1,20 @@
+﻿#if UNITY_EDITOR
+using UnityEditor;
+#endif
+using UnityEngine;
+
+/* Delete this file to remove the AllSky menu item. */ 
+
+namespace Com.AllSkyFree
+{
+	public class AllSkyFreeMenu : MonoBehaviour
+	{
+#if UNITY_EDITOR
+		[MenuItem("Window/AllSky/AllSky 200+ Skybox Set")]
+		static void Link()
+	    {
+		    Application.OpenURL( "https://assetstore.unity.com/packages/2d/textures-materials/sky/allsky-200-sky-skybox-set-10109" );
+	    }
+#endif
+	}	
+}

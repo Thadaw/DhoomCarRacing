@@ -5,7 +5,8 @@ public class MainMenuMusic : MonoBehaviour
 
 void Start()
     {
-        AudioManager.instance.playMenuMusic();
+        if (AudioManager.instance != null)
+            AudioManager.instance.playMenuMusic();
     }
     
 }

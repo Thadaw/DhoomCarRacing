@@ -4,13 +4,13 @@ using TMPro;
 public class UIManager : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI speedText;
-    private CarController carController;
+    private PhotonCarController carController;
 
     void Start()
     {
         if (carController == null)
         {
-            carController = FindFirstObjectByType<CarController>();
+            carController = FindFirstObjectByType<PhotonCarController>();
         }
     }
 
@@ -21,7 +21,7 @@ public class UIManager : MonoBehaviour
         speedText.text = $"{carController.CarSpeed():0} KM/H";
     }
 
-    public void BindCarController(CarController ctrl)
+    public void BindCarController(PhotonCarController ctrl)
     {
         carController = ctrl;
     }

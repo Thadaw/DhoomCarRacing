@@ -31,7 +31,6 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
     [Header("Scene Names")]
     public string menuSceneName = "MultiplayerMenu";
-    public string gameSceneName = "MainGame";
     public string trackSelectionSceneName = "TrackSelection";
     public string garageSceneName = "Garage";
 
@@ -287,13 +286,31 @@ public class LobbyManager : MonoBehaviourPunCallbacks
             return;
         }
 
-        PhotonNetwork.CurrentRoom.IsOpen = false; // lock the room once the race starts
+        PhotonNetwork.CurrentRoom.IsOpen = false;
         PhotonNetwork.AutomaticallySyncScene = true;
 
-        // Ensure the NetworkCarManager singleton exists before the race scene loads
         NetworkCarManager.EnsureExists();
 
-        PhotonNetwork.LoadLevel(gameSceneName);
+        string sceneName = "MainGame";
+        if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TrackId", out object trackId))
+        {
+            sceneName = GetSceneNameForTrack(trackId.ToString());
+        }
+        Debug.Log("Loading track scene: " + sceneName);
+        PhotonNetwork.LoadLevel(sceneName);
+    }
+
+    string GetSceneNameForTrack(string trackId)
+    {
+        switch (trackId)
+        {
+            case "Track1": return "MainGame";
+            case "Track2": return "Track1";
+            case "Track3": return "Track3";
+            default:
+                Debug.LogWarning("Unknown trackId: " + trackId + ". Defaulting to MainGame.");
+                return "MainGame";
+        }
     }
 
     // ================= PHOTON CALLBACKS =================

@@ -25,7 +25,6 @@ public class TrackSelection : MonoBehaviour
     public Button playButton;
 
     [Header("Scene Names")]
-    [SerializeField] private string raceSceneName = "MainGame";
     [SerializeField] private string multiplayerMenuSceneName = "MultiplayerMenu";
     [SerializeField] private string garageSceneName = "Garage";
     [SerializeField] private string lobbySceneName = "Lobby";
@@ -92,6 +91,19 @@ public class TrackSelection : MonoBehaviour
             playButton.interactable = state;
     }
 
+    string GetSceneNameForTrack(string trackId)
+    {
+        switch (trackId)
+        {
+            case "Track1": return "MainGame";
+            case "Track2": return "Track1";
+            case "Track3": return "Track3";
+            default:
+                Debug.LogWarning("Unknown trackId: " + trackId + ". Defaulting to MainGame.");
+                return "MainGame";
+        }
+    }
+
     public void ConfirmSelection()
     {
         if (string.IsNullOrEmpty(selectedTrackId))
@@ -102,10 +114,12 @@ public class TrackSelection : MonoBehaviour
 
         Debug.Log("Track confirmed: " + selectedTrackId);
 
+        string sceneToLoad = GetSceneNameForTrack(selectedTrackId);
+
         if (GameSession.Instance == null)
         {
-            Debug.LogError("GameSession.Instance is null! Cannot determine where to route. Defaulting to race scene.");
-            SceneManager.LoadScene(raceSceneName);
+            Debug.LogError("GameSession.Instance is null! Loading track scene directly: " + sceneToLoad);
+            SceneManager.LoadScene(sceneToLoad);
             return;
         }
 
@@ -131,8 +145,8 @@ public class TrackSelection : MonoBehaviour
         switch (GameSession.Instance.CurrentMode)
         {
             case GameSession.GameMode.SinglePlayer:
-                Debug.Log("Routing to race scene (Single Player): " + raceSceneName);
-                SceneManager.LoadScene(raceSceneName);
+                Debug.Log("Loading track scene: " + sceneToLoad);
+                SceneManager.LoadScene(sceneToLoad);
                 break;
 
             case GameSession.GameMode.MultiplayerHost:
@@ -143,8 +157,8 @@ public class TrackSelection : MonoBehaviour
 
             default:
                 Debug.LogWarning("GameSession.CurrentMode was None when Play was pressed! " +
-                    "Defaulting to race scene. Did MainMenu set CurrentMode before reaching here?");
-                SceneManager.LoadScene(raceSceneName);
+                    "Defaulting to track scene: " + sceneToLoad);
+                SceneManager.LoadScene(sceneToLoad);
                 break;
         }
     }

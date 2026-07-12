@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class NetworkCar : MonoBehaviourPun, IPunObservable
 {
-    private CarController carController;
+    private PhotonCarController carController;
     private Rigidbody carRigidbody;
     private Vector3 networkPosition;
     private Quaternion networkRotation;
@@ -63,7 +63,7 @@ public class NetworkCar : MonoBehaviourPun, IPunObservable
         GameObject carModel = Instantiate(prefabs[carId], transform.position, transform.rotation, transform);
         carModelTransform = carModel.transform;
 
-        carController = carModel.GetComponent<CarController>();
+        carController = carModel.GetComponent<PhotonCarController>();
         if (carController != null)
         {
             carController.photonViewRef = photonView;
