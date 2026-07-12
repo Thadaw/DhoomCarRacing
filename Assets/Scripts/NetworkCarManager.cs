@@ -13,9 +13,8 @@ public class NetworkCarManager : MonoBehaviour
     [Header("Spawn Points")]
     public Transform[] spawnPoints;
 
-    [Header("Scene Names")]
+    [Header("Network")]
     public string networkCarPrefabName = "NetworkCar";
-    public string raceSceneName = "MainGame";
 
     [Header("Spawn Alignment")]
     public float groundRaycastHeight = 5f;
@@ -69,11 +68,10 @@ public class NetworkCarManager : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Reset spawn flag and spawn points when leaving/entering scenes
         hasSpawnedLocal = false;
         spawnPoints = null;
 
-        if (scene.name == raceSceneName && PhotonNetwork.InRoom)
+        if (PhotonNetwork.InRoom)
         {
             FindSpawnPointsInScene();
             SpawnMyNetworkCar();

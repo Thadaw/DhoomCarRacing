@@ -7,8 +7,8 @@ using UnityEngine;
 public class MultiplayerMenuController : MonoBehaviour
 {
     private const string MainMenuSceneName = "MainMenu";
-    private const string CreateRoomSceneName = "Createroom"; // adjust to your real scene name if different
-    private const string JoinRoomSceneName = "Joinroom";     // adjust to your real scene name if different
+    private const string CreateRoomSceneName = "Lobby";
+    private const string JoinRoomSceneName = "Joining";
 
     [SerializeField] private SceneSwitcher sceneSwitcher; // drag the SceneSwitcher GameObject here in Inspector
 

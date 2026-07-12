@@ -363,13 +363,14 @@ public class RaceResultsUI : MonoBehaviour
 
     private void RestartRace()
     {
+        string currentScene = SceneManager.GetActiveScene().name;
         if (PhotonNetwork.InRoom && PhotonNetwork.IsMasterClient)
         {
-            PhotonNetwork.LoadLevel("MainGame");
+            PhotonNetwork.LoadLevel(currentScene);
         }
         else if (!PhotonNetwork.InRoom)
         {
-            SceneManager.LoadScene("MainGame");
+            SceneManager.LoadScene(currentScene);
         }
         else
         {

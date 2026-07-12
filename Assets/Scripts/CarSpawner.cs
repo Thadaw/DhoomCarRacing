@@ -55,7 +55,7 @@ public class CarSpawner : MonoBehaviour
         );
 
         // In single player, mark this car as the local player's car
-        CarController cc = spawnedCar.GetComponent<CarController>();
+        PhotonCarController cc = spawnedCar.GetComponent<PhotonCarController>();
         if (cc != null)
             cc.isLocalPlayerCar = true;
 
