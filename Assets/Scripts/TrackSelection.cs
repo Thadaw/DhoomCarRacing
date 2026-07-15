@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using TMPro;
 using Photon.Pun;
 using ExitGames.Client.Photon;
 using Hashtable = ExitGames.Client.Photon.Hashtable;
@@ -24,6 +25,9 @@ public class TrackSelection : MonoBehaviour
     [Header("Play Button")]
     public Button playButton;
 
+    [Header("Lap Settings (Single Player)")]
+    public TMP_Dropdown lapCountDropdown;
+
     [Header("Scene Names")]
     [SerializeField] private string multiplayerMenuSceneName = "MultiplayerMenu";
     [SerializeField] private string garageSceneName = "Garage";
@@ -36,6 +40,7 @@ public class TrackSelection : MonoBehaviour
         ShowAllMaps();
         UpdateButtonHighlights();
         SetPlayInteractable(false);
+        InitializeLapCountDropdown();
 
         GameObject backBtn = GameObject.Find("Back");
         if (backBtn != null)
@@ -43,6 +48,36 @@ public class TrackSelection : MonoBehaviour
             Button btn = backBtn.GetComponent<Button>();
             if (btn != null)
                 btn.onClick.AddListener(() => { PlayClickSound(); GoBack(); });
+        }
+    }
+
+    void InitializeLapCountDropdown()
+    {
+        if (lapCountDropdown == null) return;
+
+        bool isSinglePlayer = GameSession.Instance != null
+            && GameSession.Instance.CurrentMode == GameSession.GameMode.SinglePlayer;
+
+        lapCountDropdown.gameObject.SetActive(isSinglePlayer);
+
+        if (isSinglePlayer)
+        {
+            lapCountDropdown.ClearOptions();
+            lapCountDropdown.AddOptions(new System.Collections.Generic.List<string>
+                { "1 Lap", "2 Laps", "3 Laps", "5 Laps" });
+            lapCountDropdown.SetValueWithoutNotify(2);
+        }
+    }
+
+    int GetLapCountFromIndex(int index)
+    {
+        switch (index)
+        {
+            case 0: return 1;
+            case 1: return 2;
+            case 2: return 3;
+            case 3: return 5;
+            default: return 3;
         }
     }
 
@@ -138,6 +173,11 @@ public class TrackSelection : MonoBehaviour
         }
 
         GameSession.Instance.SelectedTrackId = selectedTrackId;
+
+        if (GameSession.Instance.CurrentMode == GameSession.GameMode.SinglePlayer && lapCountDropdown != null)
+        {
+            GameSession.Instance.TotalLaps = GetLapCountFromIndex(lapCountDropdown.value);
+        }
 
         if (GameSession.Instance.IsSelectingFromLobby)
         {
