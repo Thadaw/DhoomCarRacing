@@ -31,7 +31,7 @@ public class MainMenuController : MonoBehaviour
         {
             Button btn = profileBtn.GetComponent<Button>();
             if (btn != null)
-                btn.onClick.AddListener(OnProfilePressed);
+                btn.onClick.AddListener(() => { PlayClickSound(); OnProfilePressed(); });
         }
 
         GameObject garageBtn = GameObject.Find("Garage");
@@ -39,7 +39,7 @@ public class MainMenuController : MonoBehaviour
         {
             Button btn = garageBtn.GetComponent<Button>();
             if (btn != null)
-                btn.onClick.AddListener(OnGaragePressed);
+                btn.onClick.AddListener(() => { PlayClickSound(); OnGaragePressed(); });
         }
 
         GameObject mpBtn = GameObject.Find("Multiplayer");
@@ -47,6 +47,12 @@ public class MainMenuController : MonoBehaviour
             multiplayerBtn = mpBtn.GetComponent<Button>();
 
         BuildGoogleSignInUI();
+    }
+
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
     }
 
     private void BuildGoogleSignInUI()
@@ -73,6 +79,7 @@ public class MainMenuController : MonoBehaviour
         googleSignInBtn.onClick.RemoveAllListeners();
         googleSignInBtn.onClick.AddListener(async () =>
         {
+            PlayClickSound();
             googleSignInBtn.interactable = false;
 
             string googleName = await GoogleDesktopAuth.GetUserName();
@@ -95,28 +102,35 @@ public class MainMenuController : MonoBehaviour
 
     public void OnSinglePlayerPressed()
     {
+        PlayClickSound();
+        GameSession.Instance.IsSelectingFromLobby = false;
         GameSession.Instance.CurrentMode = GameSession.GameMode.SinglePlayer;
         sceneSwitcher.SceneLoder(GarageSceneName);
     }
 
     public void OnMultiplayerPressed()
     {
+        PlayClickSound();
+        GameSession.Instance.IsSelectingFromLobby = false;
         GameSession.Instance.CurrentMode = GameSession.GameMode.MultiplayerHost;
         sceneSwitcher.SceneLoder("MultiplayerMenu");
     }
 
     public void OnProfilePressed()
     {
+        PlayClickSound();
         sceneSwitcher.SceneLoder(StatsSceneName);
     }
 
     public void OnGaragePressed()
     {
+        PlayClickSound();
         sceneSwitcher.SceneLoder(GarageSceneName);
     }
 
     public void OnQuitPressed()
     {
+        PlayClickSound();
         sceneSwitcher.QuitGame();
     }
 
