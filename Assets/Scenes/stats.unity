@@ -221,7 +221,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: d436542eb98adab4f94ec11ed87e7200, type: 3}
+  m_Sprite: {fileID: 21300000, guid: be81687ead91e984cb893e73d2431e96, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -347,7 +347,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 4ea68b34aa5dc5b4cb1b3e0483366a62, type: 3}
+  m_Sprite: {fileID: 21300000, guid: e0d7fc8fba8c85b4496974a4407bfdd7, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -886,7 +886,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: faae8c83a5c7d6b4eb21a4e218387b59, type: 3}
+  m_Sprite: {fileID: 21300000, guid: b7ef2439a6807d54db1b93f4bd96f2cc, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1746,7 +1746,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 8d53be8c7254f174e974fde284c6625c, type: 3}
+  m_Sprite: {fileID: 21300000, guid: e7f2a4ee38953824290d63437ac98474, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1958,7 +1958,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: bbecacf77a45fe14eac0ba5e83e2a774, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 2bd2361df7250bd489c851baed1ab49d, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2079,7 +2079,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: be129ea2c36594b4da611373e0ff568e, type: 3}
+  m_Sprite: {fileID: 21300000, guid: c342671bc7032d845898534c6e5f01f1, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2557,7 +2557,7 @@ SpriteRenderer:
   m_Size: {x: 19.2, y: 19.2}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
 --- !u!1001 &2147102527
 PrefabInstance:
