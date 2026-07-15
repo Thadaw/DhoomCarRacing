@@ -311,7 +311,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         switch (trackId)
         {
             case "Track1": return "Track1";
-            case "Track2": return "Track1";
+            case "Track2": return "Track2";
             case "Track3": return "Track3";
             default:
                 Debug.LogWarning("Unknown trackId: " + trackId + ". Defaulting to Track1.");
