@@ -24,6 +24,9 @@ public class PauseMenu : MonoBehaviour
 
     private void Start()
     {
+        Time.timeScale = 1f;
+        isPaused = false;
+
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
@@ -38,6 +41,12 @@ public class PauseMenu : MonoBehaviour
             lobbyButton.onClick.AddListener(() => { PlayClickSound(); GoToLobby(); });
         if (mainMenuButton != null)
             mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+    }
+
+    private void OnEnable()
+    {
+        Time.timeScale = 1f;
+        isPaused = false;
     }
 
     private void PlayClickSound()
