@@ -297,7 +297,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
         NetworkCarManager.EnsureExists();
 
-        string sceneName = "MainGame";
+        string sceneName = "Track1";
         if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TrackId", out object trackId))
         {
             sceneName = GetSceneNameForTrack(trackId.ToString());
@@ -310,12 +310,12 @@ public class LobbyManager : MonoBehaviourPunCallbacks
     {
         switch (trackId)
         {
-            case "Track1": return "MainGame";
+            case "Track1": return "Track1";
             case "Track2": return "Track1";
             case "Track3": return "Track3";
             default:
-                Debug.LogWarning("Unknown trackId: " + trackId + ". Defaulting to MainGame.");
-                return "MainGame";
+                Debug.LogWarning("Unknown trackId: " + trackId + ". Defaulting to Track1.");
+                return "Track1";
         }
     }
 

@@ -24,14 +24,11 @@ EditorBuildSettings:
     path: Assets/Scenes/Lobby.unity
     guid: c20afd5957468b040b295e79bda46341
   - enabled: 1
-    path: Assets/Scenes/MainGame.unity
+    path: Assets/Scenes/Track1.unity
     guid: 43d8f095b3b738c498d91ed4bd3f4a4c
   - enabled: 1
     path: Assets/Scenes/stats.unity
     guid: 1412a9519a29cf74baf337f7d1dcc1d3
-  - enabled: 1
-    path: Assets/Scenes/Track1.unity
-    guid: 90d300880d6d4b84896741ec23f16a64
   - enabled: 1
     path: Assets/Scenes/Track3.unity
     guid: 78e57fb4c18dc28e2c3b7110232a6959
