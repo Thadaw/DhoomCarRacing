@@ -33,7 +33,7 @@ public class TrackSelection : MonoBehaviour
 
     void Start()
     {
-        ShowOnlyMap(null);
+        ShowAllMaps();
         UpdateButtonHighlights();
         SetPlayInteractable(false);
 
@@ -42,12 +42,19 @@ public class TrackSelection : MonoBehaviour
         {
             Button btn = backBtn.GetComponent<Button>();
             if (btn != null)
-                btn.onClick.AddListener(GoBack);
+                btn.onClick.AddListener(() => { PlayClickSound(); GoBack(); });
         }
+    }
+
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
     }
 
     public void SelectTrack(string trackId)
     {
+        PlayClickSound();
         if (string.IsNullOrEmpty(trackId))
         {
             Debug.LogError("TrackSelection.SelectTrack() called with an empty trackId!");
@@ -57,9 +64,15 @@ public class TrackSelection : MonoBehaviour
         selectedTrackId = trackId;
         Debug.Log("Track highlighted: " + selectedTrackId);
 
-        ShowOnlyMap(trackId);
         UpdateButtonHighlights();
         SetPlayInteractable(true);
+    }
+
+    void ShowAllMaps()
+    {
+        if (track1Map != null) track1Map.SetActive(true);
+        if (track2Map != null) track2Map.SetActive(true);
+        if (track3Map != null) track3Map.SetActive(true);
     }
 
     void ShowOnlyMap(string trackId)
@@ -106,6 +119,7 @@ public class TrackSelection : MonoBehaviour
 
     public void ConfirmSelection()
     {
+        PlayClickSound();
         if (string.IsNullOrEmpty(selectedTrackId))
         {
             Debug.LogWarning("Play pressed but no track was selected yet.");

@@ -42,14 +42,6 @@ public class PlayerLapTracker : MonoBehaviour
             PlayTimeTracker.EnsureExists();
             PlayTimeTracker.Instance.StartTracking();
 
-            // Create the in-race results open button
-            RaceResultsUI resultsUI = FindFirstObjectByType<RaceResultsUI>();
-            if (resultsUI == null)
-            {
-                var go = new GameObject("RaceResultsUI");
-                resultsUI = go.AddComponent<RaceResultsUI>();
-            }
-            resultsUI.CreateOpenButton();
         }
     }
 
@@ -145,14 +137,7 @@ public class PlayerLapTracker : MonoBehaviour
         if (LeaderboardManager.Instance != null)
             LeaderboardManager.Instance.SubmitTime(playerName, trackId, finishTime);
 
-        // Show results UI (auto-create if needed)
-        RaceResultsUI resultsUI = FindFirstObjectByType<RaceResultsUI>();
-        if (resultsUI == null)
-        {
-            var go = new GameObject("RaceResultsUI");
-            resultsUI = go.AddComponent<RaceResultsUI>();
-        }
-        resultsUI.ShowResults();
+
 
         if (lapText != null)
             lapText.text = "FINISHED";

@@ -15,6 +15,12 @@ public class StatsController : MonoBehaviour
     private bool leaderboardLoading = false;
     private TMP_FontAsset cachedFont;
 
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
+    }
+
     private void Start()
     {
         FirebaseManager.EnsureExists();
@@ -158,6 +164,7 @@ public class StatsController : MonoBehaviour
         Button saveBtn = CreateSimpleButton(nameEditPanel.transform, "Save", new Vector2(-60, -30), new Vector2(80, 36), new Color(0.2f, 0.6f, 0.2f));
         saveBtn.onClick.AddListener(() =>
         {
+            PlayClickSound();
             string val = nameEditInput.text;
             if (string.IsNullOrEmpty(val)) return;
             PlayerPrefs.SetString("PlayerName", val);
@@ -168,10 +175,11 @@ public class StatsController : MonoBehaviour
 
         // Cancel button
         Button cancelBtn = CreateSimpleButton(nameEditPanel.transform, "Cancel", new Vector2(60, -30), new Vector2(80, 36), new Color(0.6f, 0.2f, 0.2f));
-        cancelBtn.onClick.AddListener(() => nameEditPanel.SetActive(false));
+        cancelBtn.onClick.AddListener(() => { PlayClickSound(); nameEditPanel.SetActive(false); });
 
         editBtn.onClick.AddListener(() =>
         {
+            PlayClickSound();
             nameEditInput.text = playerNameText.text;
             nameEditPanel.SetActive(true);
         });
@@ -247,6 +255,7 @@ public class StatsController : MonoBehaviour
         backButton.onClick.RemoveAllListeners();
         backButton.onClick.AddListener(() =>
         {
+            PlayClickSound();
             SceneSwitcher ss = FindSceneSwitcher();
             if (ss != null)
                 ss.SceneLoder("MainMenu");
@@ -266,6 +275,7 @@ public class StatsController : MonoBehaviour
         logoutButton.onClick.RemoveAllListeners();
         logoutButton.onClick.AddListener(() =>
         {
+            PlayClickSound();
             PlayerPrefs.SetString("PlayerName", "Player");
             PhotonNetwork.NickName = "Player";
             SceneSwitcher ss = FindSceneSwitcher();

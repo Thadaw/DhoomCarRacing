@@ -41,15 +41,22 @@ public class CarSelection : MonoBehaviour
         {
             Button btn = backBtn.GetComponent<Button>();
             if (btn != null)
-                btn.onClick.AddListener(GoBack);
+                btn.onClick.AddListener(() => { PlayClickSound(); GoBack(); });
         }
 
         Debug.Log("Car Selection Started. Mode: " +
             (GameSession.Instance != null ? GameSession.Instance.CurrentMode.ToString() : "none"));
     }
 
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
+    }
+
     public void NextCar()
     {
+        PlayClickSound();
         Debug.Log("NEXT BUTTON WORKING");
 
         if (cars == null || cars.Length == 0)
@@ -70,6 +77,7 @@ public class CarSelection : MonoBehaviour
 
     public void PreviousCar()
     {
+        PlayClickSound();
         if (cars == null || cars.Length == 0)
             return;
 
@@ -87,6 +95,7 @@ public class CarSelection : MonoBehaviour
 
     public void SelectCar()
     {
+        PlayClickSound();
         PlayerPrefs.SetInt("CarIndexValue", currentCarIndex);
         Debug.Log("Selected Car Index: " + currentCarIndex);
 

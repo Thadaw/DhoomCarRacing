@@ -39,22 +39,28 @@ public class LobbyManager : MonoBehaviourPunCallbacks
     private bool isReady = false;
     private bool hasRoomState = false;
 
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
+    }
+
     void Start()
     {
         if (readyButton != null)
-            readyButton.onClick.AddListener(ToggleReady);
+            readyButton.onClick.AddListener(() => { PlayClickSound(); ToggleReady(); });
 
         if (startButton != null)
-            startButton.onClick.AddListener(StartGame);
+            startButton.onClick.AddListener(() => { PlayClickSound(); StartGame(); });
 
         if (leaveButton != null)
-            leaveButton.onClick.AddListener(LeaveRoom);
+            leaveButton.onClick.AddListener(() => { PlayClickSound(); LeaveRoom(); });
 
         if (selectCarButton != null)
-            selectCarButton.onClick.AddListener(OnSelectCarPressed);
+            selectCarButton.onClick.AddListener(() => { PlayClickSound(); OnSelectCarPressed(); });
 
         if (selectTrackButton != null)
-            selectTrackButton.onClick.AddListener(OnSelectTrackPressed);
+            selectTrackButton.onClick.AddListener(() => { PlayClickSound(); OnSelectTrackPressed(); });
 
         // Fallback: try to auto-find buttons by name if not assigned in Inspector
         if (selectCarButton == null)
@@ -64,7 +70,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
             {
                 selectCarButton = go.GetComponent<Button>();
                 if (selectCarButton != null)
-                    selectCarButton.onClick.AddListener(OnSelectCarPressed);
+                    selectCarButton.onClick.AddListener(() => { PlayClickSound(); OnSelectCarPressed(); });
             }
         }
 
@@ -75,7 +81,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
             {
                 selectTrackButton = go.GetComponent<Button>();
                 if (selectTrackButton != null)
-                    selectTrackButton.onClick.AddListener(OnSelectTrackPressed);
+                    selectTrackButton.onClick.AddListener(() => { PlayClickSound(); OnSelectTrackPressed(); });
             }
         }
 

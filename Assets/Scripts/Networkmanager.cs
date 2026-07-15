@@ -23,6 +23,12 @@ public class Networkmanager : MonoBehaviourPunCallbacks
     public string defaultGameVersion = "1.0";
  
     private bool isCreatingRoom = false;
+
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
+    }
  
     // True only once OnConnectedToMaster() has actually fired.
     // IsConnectedAndReady is NOT enough - it's also true while still on the
@@ -32,9 +38,9 @@ public class Networkmanager : MonoBehaviourPunCallbacks
  
     void Start()
     {
-        createRoomButton.onClick.AddListener(CreateRoom);
-        joinRoomButton.onClick.AddListener(OnJoinRoomClicked);
-        backButton.onClick.AddListener(GoBack);
+        createRoomButton.onClick.AddListener(() => { PlayClickSound(); CreateRoom(); });
+        joinRoomButton.onClick.AddListener(() => { PlayClickSound(); OnJoinRoomClicked(); });
+        backButton.onClick.AddListener(() => { PlayClickSound(); GoBack(); });
  
         // Disable buttons until we're actually connected to the Master Server.
         SetButtonsInteractable(false);
