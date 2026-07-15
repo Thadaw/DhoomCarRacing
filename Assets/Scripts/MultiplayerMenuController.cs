@@ -12,9 +12,16 @@ public class MultiplayerMenuController : MonoBehaviour
 
     [SerializeField] private SceneSwitcher sceneSwitcher; // drag the SceneSwitcher GameObject here in Inspector
 
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
+    }
+
     // Hook to: Createroom -> OnClick()
     public void OnCreateRoomPressed()
     {
+        PlayClickSound();
         GameSession.Instance.CurrentMode = GameSession.GameMode.MultiplayerHost;
         sceneSwitcher.SceneLoder(CreateRoomSceneName);
     }
@@ -22,6 +29,7 @@ public class MultiplayerMenuController : MonoBehaviour
     // Hook to: Joinroom -> OnClick()
     public void OnJoinRoomPressed()
     {
+        PlayClickSound();
         GameSession.Instance.CurrentMode = GameSession.GameMode.MultiplayerJoin;
         sceneSwitcher.SceneLoder(JoinRoomSceneName);
     }
@@ -29,6 +37,7 @@ public class MultiplayerMenuController : MonoBehaviour
     // Hook to: Back -> OnClick()
     public void OnBackPressed()
     {
+        PlayClickSound();
         sceneSwitcher.SceneLoder(MainMenuSceneName);
     }
 }

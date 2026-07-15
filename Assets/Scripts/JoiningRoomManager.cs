@@ -39,11 +39,17 @@ public class JoiningRoomManager : MonoBehaviourPunCallbacks
     private bool isJoining = false;
     private bool isReadyForMatchmaking = false;
 
+    private void PlayClickSound()
+    {
+        if (AudioManager.instance != null)
+            AudioManager.instance.playButtonSound();
+    }
+
     void Start()
     {
         if (joinButton != null)
         {
-            joinButton.onClick.AddListener(OnJoinButtonClicked);
+            joinButton.onClick.AddListener(() => { PlayClickSound(); OnJoinButtonClicked(); });
             Debug.Log("[Joining] Join button listener attached.");
         }
         else
@@ -53,7 +59,7 @@ public class JoiningRoomManager : MonoBehaviourPunCallbacks
 
         if (backButton != null)
         {
-            backButton.onClick.AddListener(GoBack);
+            backButton.onClick.AddListener(() => { PlayClickSound(); GoBack(); });
             Debug.Log("[Joining] Back button listener attached.");
         }
 
@@ -61,7 +67,7 @@ public class JoiningRoomManager : MonoBehaviourPunCallbacks
             Debug.LogError("[Joining] roomCodeInput is NOT assigned in the Inspector!");
 
         if (popupOkButton != null)
-            popupOkButton.onClick.AddListener(HidePopup);
+            popupOkButton.onClick.AddListener(() => { PlayClickSound(); HidePopup(); });
 
         HidePopup(); // make sure popup starts hidden
 
