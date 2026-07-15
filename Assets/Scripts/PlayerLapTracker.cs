@@ -6,6 +6,8 @@ using System.Collections.Generic;
 
 public class PlayerLapTracker : MonoBehaviour
 {
+    public static System.Action OnLocalPlayerFinished;
+
     [Header("Lap Settings")]
     public int totalLaps = 3;
     public int totalCheckpoints = 3;
@@ -22,13 +24,56 @@ public class PlayerLapTracker : MonoBehaviour
     public float finishTime;
     public List<float> lapTimes = new List<float>();
 
+    [Header("Speed Tracking")]
+    public float topSpeed;
+    public float averageSpeed;
+    public List<float> speedSamples = new List<float>();
+
     private bool raceCompleted = false;
     private float raceStartTime = -1f;
     private float lapStartTime = -1f;
+    private PhotonCarController cachedCarController;
 
     private void Start()
     {
+        AutoDetectCheckpoints();
+        ApplyLapSettings();
         UpdateUI();
+    }
+
+    private void AutoDetectCheckpoints()
+    {
+        RaceCheckpoint[] allCheckpoints = FindObjectsByType<RaceCheckpoint>(FindObjectsSortMode.None);
+        int count = 0;
+        foreach (RaceCheckpoint cp in allCheckpoints)
+        {
+            if (!cp.isFinishLine)
+                count++;
+        }
+        if (count > 0)
+            totalCheckpoints = count;
+
+        Debug.Log("Auto-detected " + totalCheckpoints + " checkpoints in scene.");
+    }
+
+    private void ApplyLapSettings()
+    {
+        if (PhotonNetwork.InRoom)
+        {
+            if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TotalLaps", out object laps))
+            {
+                totalLaps = (int)laps;
+                Debug.Log("Applied TotalLaps from Photon: " + totalLaps);
+            }
+        }
+        else
+        {
+            if (GameSession.Instance != null)
+            {
+                totalLaps = GameSession.Instance.TotalLaps;
+                Debug.Log("Applied TotalLaps from GameSession: " + totalLaps);
+            }
+        }
     }
 
     private void Update()
@@ -38,11 +83,29 @@ public class PlayerLapTracker : MonoBehaviour
             raceStartTime = Time.time;
             lapStartTime = Time.time;
 
-            // Start tracking play time
             PlayTimeTracker.EnsureExists();
             PlayTimeTracker.Instance.StartTracking();
-
         }
+
+        if (raceStartTime > 0f && !raceCompleted)
+        {
+            TrackSpeed();
+        }
+    }
+
+    private void TrackSpeed()
+    {
+        if (cachedCarController == null)
+            cachedCarController = GetComponentInParent<PhotonCarController>();
+
+        if (cachedCarController == null)
+            return;
+
+        float currentSpeed = cachedCarController.CarSpeed();
+        speedSamples.Add(currentSpeed);
+
+        if (currentSpeed > topSpeed)
+            topSpeed = currentSpeed;
     }
 
     public void PassCheckpoint(int checkpointIndex)
@@ -81,22 +144,18 @@ public class PlayerLapTracker : MonoBehaviour
             return;
         }
 
-        // Player completed all checkpoints of this lap
         nextCheckpointIndex = 0;
 
-        // Record lap time
         float lapTime = Time.time - lapStartTime;
         lapTimes.Add(lapTime);
         lapStartTime = Time.time;
 
-        // If this was the final lap, finish the race immediately
         if (currentLap >= totalLaps)
         {
             FinishRace();
             return;
         }
 
-        // Otherwise move to next lap
         currentLap++;
 
         Debug.Log("Lap completed. Current lap: " + currentLap);
@@ -109,7 +168,8 @@ public class PlayerLapTracker : MonoBehaviour
         raceCompleted = true;
         finishTime = Time.time - raceStartTime;
 
-        // Stop tracking play time for this race
+        ComputeAverageSpeed();
+
         if (PlayTimeTracker.Instance != null)
             PlayTimeTracker.Instance.StopTracking();
 
@@ -120,16 +180,18 @@ public class PlayerLapTracker : MonoBehaviour
             RaceManager.Instance.raceFinished = true;
         }
 
-        // Store finish time in Photon custom properties (multiplayer)
         PhotonView pv = GetComponentInParent<PhotonView>();
-        if (pv != null && pv.IsMine && PhotonNetwork.InRoom)
+        bool isLocal = (pv != null && pv.IsMine) || (pv == null);
+
+        if (isLocal && pv != null && PhotonNetwork.InRoom)
         {
             Hashtable props = new Hashtable();
             props["FinishTime"] = finishTime;
+            props["TopSpeed"] = topSpeed;
+            props["AverageSpeed"] = averageSpeed;
             PhotonNetwork.LocalPlayer.SetCustomProperties(props);
         }
 
-        // Submit time to Firebase leaderboard
         string playerName = PlayerPrefs.GetString("PlayerName", "Player");
         string trackId = GameSession.Instance != null ? GameSession.Instance.SelectedTrackId : "Unknown";
         FirebaseManager.EnsureExists();
@@ -137,13 +199,32 @@ public class PlayerLapTracker : MonoBehaviour
         if (LeaderboardManager.Instance != null)
             LeaderboardManager.Instance.SubmitTime(playerName, trackId, finishTime);
 
-
-
         if (lapText != null)
             lapText.text = "FINISHED";
 
         if (checkpointText != null)
             checkpointText.text = "Race Complete";
+
+        if (isLocal)
+        {
+            Debug.Log("Firing OnLocalPlayerFinished event.");
+            OnLocalPlayerFinished?.Invoke();
+        }
+    }
+
+    private void ComputeAverageSpeed()
+    {
+        if (speedSamples.Count == 0)
+        {
+            averageSpeed = 0f;
+            return;
+        }
+
+        float sum = 0f;
+        for (int i = 0; i < speedSamples.Count; i++)
+            sum += speedSamples[i];
+
+        averageSpeed = sum / speedSamples.Count;
     }
 
     private void UpdateUI()

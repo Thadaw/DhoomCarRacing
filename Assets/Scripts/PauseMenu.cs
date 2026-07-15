@@ -14,13 +14,14 @@ public class PauseMenu : MonoBehaviour
     [Header("Panel Buttons")]
     [SerializeField] private Button resumeButton;
     [SerializeField] private Button restartButton;
-    [SerializeField] private Button lobbyButton;
     [SerializeField] private Button mainMenuButton;
 
     [Header("Player Rows")]
-    [SerializeField] private TextMeshProUGUI[] playerRows;
+    [SerializeField] private Transform playerListParent;
+    [SerializeField] private TextMeshProUGUI playerRowTemplate;
 
     private bool isPaused = false;
+    private List<GameObject> spawnedRows = new List<GameObject>();
 
     private void Start()
     {
@@ -30,17 +31,50 @@ public class PauseMenu : MonoBehaviour
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
+        TryFindButtons();
+
         if (toggleButton != null)
             toggleButton.onClick.AddListener(() => { PlayClickSound(); TogglePause(); });
-
         if (resumeButton != null)
             resumeButton.onClick.AddListener(() => { PlayClickSound(); Resume(); });
         if (restartButton != null)
             restartButton.onClick.AddListener(() => { PlayClickSound(); Restart(); });
-        if (lobbyButton != null)
-            lobbyButton.onClick.AddListener(() => { PlayClickSound(); GoToLobby(); });
         if (mainMenuButton != null)
             mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+    }
+
+    private void TryFindButtons()
+    {
+        if (toggleButton == null)
+        {
+            var go = GameObject.Find("PauseButton");
+            if (go != null) toggleButton = go.GetComponent<Button>();
+        }
+        if (resumeButton == null)
+        {
+            var go = GameObject.Find("ResumeButton");
+            if (go != null) resumeButton = go.GetComponent<Button>();
+        }
+        if (restartButton == null)
+        {
+            var go = GameObject.Find("RestartButton");
+            if (go != null) restartButton = go.GetComponent<Button>();
+        }
+        if (mainMenuButton == null)
+        {
+            var go = GameObject.Find("MainMenuButton");
+            if (go != null) mainMenuButton = go.GetComponent<Button>();
+        }
+        if (playerListParent == null)
+        {
+            var go = GameObject.Find("PlayerList");
+            if (go != null) playerListParent = go.transform;
+        }
+        if (playerRowTemplate == null && playerListParent != null)
+        {
+            var tmp = playerListParent.GetComponentInChildren<TextMeshProUGUI>();
+            if (tmp != null) playerRowTemplate = tmp;
+        }
     }
 
     private void OnEnable()
@@ -88,11 +122,37 @@ public class PauseMenu : MonoBehaviour
 
     private void UpdatePlayerRows()
     {
-        if (playerRows == null || playerRows.Length == 0)
+        if (playerListParent == null)
             return;
 
-        PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
+        ClearPlayerRows();
+
+        List<PlayerInfo> players = CollectPlayers();
+
+        players.Sort((a, b) =>
+        {
+            if (a.time > 0f && b.time > 0f) return a.time.CompareTo(b.time);
+            if (a.time > 0f) return -1;
+            if (b.time > 0f) return 1;
+            return 0;
+        });
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            string pos = (i + 1) + ".";
+            string timeStr = players[i].time > 0f
+                ? FormatTime(players[i].time)
+                : "Racing...";
+            string entryText = pos + " " + players[i].name + "  -  " + timeStr;
+            SpawnPlayerRow(entryText);
+        }
+    }
+
+    private List<PlayerInfo> CollectPlayers()
+    {
         List<PlayerInfo> players = new List<PlayerInfo>();
+
+        PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
 
         foreach (PlayerLapTracker tracker in trackers)
         {
@@ -159,32 +219,79 @@ public class PauseMenu : MonoBehaviour
             }
         }
 
-        players.Sort((a, b) =>
-        {
-            if (a.time > 0f && b.time > 0f) return a.time.CompareTo(b.time);
-            if (a.time > 0f) return -1;
-            if (b.time > 0f) return 1;
-            return 0;
-        });
+        return players;
+    }
 
-        for (int i = 0; i < playerRows.Length; i++)
+    private void SpawnPlayerRow(string text)
+    {
+        if (playerRowTemplate != null)
         {
-            if (playerRows[i] == null) continue;
+            GameObject row = Instantiate(playerRowTemplate.gameObject, playerListParent);
+            row.SetActive(true);
 
-            if (i < players.Count)
+            RectTransform rowRt = row.GetComponent<RectTransform>();
+            if (rowRt != null)
             {
-                playerRows[i].gameObject.SetActive(true);
-                string pos = (i + 1) + ".";
-                string timeStr = players[i].time > 0f
-                    ? FormatTime(players[i].time)
-                    : "Racing...";
-                playerRows[i].text = pos + " " + players[i].name + "  -  " + timeStr;
+                rowRt.anchorMin = new Vector2(0f, 1f);
+                rowRt.anchorMax = new Vector2(1f, 1f);
+                rowRt.pivot = new Vector2(0.5f, 1f);
+                rowRt.sizeDelta = new Vector2(0f, 40f);
+                rowRt.anchoredPosition = Vector2.zero;
+                rowRt.offsetMin = new Vector2(0f, rowRt.offsetMin.y);
+                rowRt.offsetMax = new Vector2(0f, rowRt.offsetMax.y);
             }
-            else
+
+            TextMeshProUGUI tmp = row.GetComponent<TextMeshProUGUI>();
+            if (tmp == null)
+                tmp = row.GetComponentInChildren<TextMeshProUGUI>();
+            if (tmp != null)
             {
-                playerRows[i].gameObject.SetActive(false);
+                tmp.text = text;
+                tmp.overflowMode = TextOverflowModes.Ellipsis;
+                tmp.enableWordWrapping = false;
+                tmp.rectTransform.anchorMin = Vector2.zero;
+                tmp.rectTransform.anchorMax = Vector2.one;
+                tmp.rectTransform.sizeDelta = Vector2.zero;
+                tmp.rectTransform.anchoredPosition = Vector2.zero;
+                tmp.rectTransform.offsetMin = new Vector2(10f, 0f);
+                tmp.rectTransform.offsetMax = new Vector2(-10f, 0f);
             }
+
+            spawnedRows.Add(row);
         }
+        else
+        {
+            GameObject go = new GameObject("PlayerRow", typeof(RectTransform));
+            go.transform.SetParent(playerListParent, false);
+
+            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = 24;
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            tmp.overflowMode = TextOverflowModes.Ellipsis;
+            tmp.enableWordWrapping = false;
+
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, 36f);
+            rt.offsetMin = new Vector2(10f, 0f);
+            rt.offsetMax = new Vector2(-10f, 0f);
+
+            spawnedRows.Add(go);
+        }
+    }
+
+    private void ClearPlayerRows()
+    {
+        foreach (GameObject row in spawnedRows)
+        {
+            if (row != null)
+                Destroy(row);
+        }
+        spawnedRows.Clear();
     }
 
     private string FormatTime(float time)
@@ -205,20 +312,6 @@ public class PauseMenu : MonoBehaviour
             SceneManager.LoadScene(currentScene);
         else
             GoToMainMenu();
-    }
-
-    private void GoToLobby()
-    {
-        Time.timeScale = 1f;
-        if (PhotonNetwork.InRoom && PhotonNetwork.IsMasterClient)
-            PhotonNetwork.LoadLevel("Lobby");
-        else if (PhotonNetwork.InRoom)
-        {
-            PhotonNetwork.LeaveRoom();
-            SceneManager.LoadScene("MultiplayerMenu");
-        }
-        else
-            SceneManager.LoadScene("Lobby");
     }
 
     private void GoToMainMenu()

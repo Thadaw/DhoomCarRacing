@@ -48,6 +48,9 @@ public class GameSession : MonoBehaviour
     [Header("Set when selecting car/track from Lobby")]
     public bool IsSelectingFromLobby = false;
 
+    [Header("Race Settings")]
+    public int TotalLaps = 3;
+
     private void Awake()
     {
         // If one already exists (e.g. we looped back to MainMenu), destroy this duplicate.

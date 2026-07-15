@@ -29,6 +29,10 @@ public class LobbyManager : MonoBehaviourPunCallbacks
     public Button selectCarButton; // open car selection (returns to lobby)
     public Button selectTrackButton; // host-only: open track selection (returns to lobby)
 
+    [Header("Race Settings (Host Only)")]
+    public TMP_Dropdown lapCountDropdown;
+    public TMP_Text lapCountDisplay;
+
     [Header("Scene Names")]
     public string menuSceneName = "MultiplayerMenu";
     public string trackSelectionSceneName = "TrackSelection";
@@ -120,6 +124,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         RefreshPlayerList();
         UpdateStartButtonState();
         UpdateSelectButtonState();
+        InitializeLapCountUI();
     }
 
     void SyncSelectedCarToPhoton()
@@ -137,6 +142,93 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable();
         props["CarId"] = selectedCarId;
         PhotonNetwork.LocalPlayer.SetCustomProperties(props);
+    }
+
+    // ================= LAP COUNT =================
+    void InitializeLapCountUI()
+    {
+        if (lapCountDropdown != null)
+        {
+            lapCountDropdown.ClearOptions();
+            lapCountDropdown.AddOptions(new List<string> { "1 Lap", "2 Laps", "3 Laps", "5 Laps" });
+
+            bool isHost = PhotonNetwork.IsMasterClient;
+            lapCountDropdown.gameObject.SetActive(isHost);
+
+            if (isHost)
+            {
+                int savedIndex = 2;
+                if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TotalLaps", out object laps))
+                    savedIndex = LapCountToIndex((int)laps);
+
+                lapCountDropdown.SetValueWithoutNotify(savedIndex);
+                lapCountDropdown.onValueChanged.AddListener(OnLapCountChanged);
+            }
+        }
+
+        UpdateLapDisplay(GetCurrentLapCount());
+    }
+
+    int GetCurrentLapCount()
+    {
+        if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TotalLaps", out object laps))
+            return (int)laps;
+        return 3;
+    }
+
+    void OnLapCountChanged(int index)
+    {
+        int laps = GetLapCountFromIndex(index);
+
+        Hashtable props = new Hashtable();
+        props["TotalLaps"] = laps;
+        PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+
+        UpdateLapDisplay(laps);
+    }
+
+    int GetLapCountFromIndex(int index)
+    {
+        switch (index)
+        {
+            case 0: return 1;
+            case 1: return 2;
+            case 2: return 3;
+            case 3: return 5;
+            default: return 3;
+        }
+    }
+
+    int LapCountToIndex(int laps)
+    {
+        switch (laps)
+        {
+            case 1: return 0;
+            case 2: return 1;
+            case 3: return 2;
+            case 5: return 3;
+            default: return 2;
+        }
+    }
+
+    void UpdateLapDisplay(int laps)
+    {
+        if (lapCountDisplay != null)
+            lapCountDisplay.text = "Laps: " + laps;
+    }
+
+    public override void OnRoomPropertiesUpdate(Hashtable changedProps)
+    {
+        if (changedProps.ContainsKey("TotalLaps"))
+        {
+            int laps = (int)changedProps["TotalLaps"];
+            UpdateLapDisplay(laps);
+
+            if (lapCountDropdown != null && !PhotonNetwork.IsMasterClient)
+            {
+                lapCountDropdown.SetValueWithoutNotify(LapCountToIndex(laps));
+            }
+        }
     }
 
     void UpdateSelectButtonState()
@@ -292,6 +384,12 @@ public class LobbyManager : MonoBehaviourPunCallbacks
             return;
         }
 
+        // Sync lap count before loading
+        int laps = GetCurrentLapCount();
+        Hashtable settings = new Hashtable();
+        settings["TotalLaps"] = laps;
+        PhotonNetwork.CurrentRoom.SetCustomProperties(settings);
+
         PhotonNetwork.CurrentRoom.IsOpen = false;
         PhotonNetwork.AutomaticallySyncScene = true;
 
@@ -302,7 +400,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         {
             sceneName = GetSceneNameForTrack(trackId.ToString());
         }
-        Debug.Log("Loading track scene: " + sceneName);
+        Debug.Log("Loading track scene: " + sceneName + " with " + laps + " laps");
         PhotonNetwork.LoadLevel(sceneName);
     }
 
