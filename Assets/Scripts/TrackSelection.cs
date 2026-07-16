@@ -187,6 +187,7 @@ public class TrackSelection : MonoBehaviour
             {
                 SyncTrackToRoom();
                 Debug.Log("Routing back to Lobby.");
+                PhotonNetwork.AutomaticallySyncScene = true;
                 SceneManager.LoadScene(lobbySceneName);
                 return;
             }
@@ -231,6 +232,7 @@ public class TrackSelection : MonoBehaviour
         if (GameSession.Instance != null && GameSession.Instance.IsSelectingFromLobby)
         {
             GameSession.Instance.IsSelectingFromLobby = false;
+            PhotonNetwork.AutomaticallySyncScene = true;
             SceneManager.LoadScene(lobbySceneName);
             return;
         }

@@ -185,10 +185,22 @@ public class PlayerLapTracker : MonoBehaviour
 
         if (isLocal && pv != null && PhotonNetwork.InRoom)
         {
+            float bestLap = 0f;
+            if (lapTimes != null && lapTimes.Count > 0)
+            {
+                bestLap = lapTimes[0];
+                for (int i = 1; i < lapTimes.Count; i++)
+                {
+                    if (lapTimes[i] < bestLap)
+                        bestLap = lapTimes[i];
+                }
+            }
+
             Hashtable props = new Hashtable();
             props["FinishTime"] = finishTime;
             props["TopSpeed"] = topSpeed;
             props["AverageSpeed"] = averageSpeed;
+            props["BestLap"] = bestLap;
             PhotonNetwork.LocalPlayer.SetCustomProperties(props);
         }
 

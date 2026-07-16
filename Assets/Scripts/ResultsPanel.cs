@@ -50,6 +50,7 @@ public class ResultsPanel : MonoBehaviour
             resultsPanel.SetActive(false);
 
         TryFindUI();
+        EnsurePlayerListMask();
 
         if (closeButton != null)
             closeButton.onClick.AddListener(() => { PlayClickSound(); ClosePanel(); });
@@ -81,7 +82,8 @@ public class ResultsPanel : MonoBehaviour
     {
         if (resultsPanel == null)
         {
-            var go = GameObject.Find("ResultsPanel");
+            var go = GameObject.Find("resultpanal");
+            if (go == null) go = GameObject.Find("ResultsPanel");
             if (go != null) resultsPanel = go;
         }
         if (closeButton == null)
@@ -91,12 +93,13 @@ public class ResultsPanel : MonoBehaviour
         }
         if (playerListParent == null)
         {
-            var go = GameObject.Find("PlayerList");
+            var go = GameObject.Find("playerlist");
+            if (go == null) go = GameObject.Find("PlayerList");
             if (go != null) playerListParent = go.transform;
         }
         if (playerRowPrefab == null)
         {
-            var go = GameObject.Find("playerrow1");
+            var go = GameObject.Find("playerrow 1");
             if (go != null) playerRowPrefab = go;
         }
         if (positionText == null)
@@ -143,6 +146,21 @@ public class ResultsPanel : MonoBehaviour
         {
             var go = GameObject.Find("MainMenuButton");
             if (go != null) mainMenuButton = go.GetComponent<Button>();
+        }
+    }
+
+    private void EnsurePlayerListMask()
+    {
+        if (playerListParent == null)
+            return;
+
+        if (playerListParent.GetComponent<Mask>() == null)
+            playerListParent.gameObject.AddComponent<Mask>();
+
+        if (playerListParent.GetComponent<Image>() == null)
+        {
+            Image img = playerListParent.gameObject.AddComponent<Image>();
+            img.color = new Color(0f, 0f, 0f, 0.01f);
         }
     }
 
@@ -196,8 +214,7 @@ public class ResultsPanel : MonoBehaviour
                 ? FormatTime(players[i].finishTime)
                 : "DNF";
             string status = players[i].isFinished ? "Finished" : "Racing...";
-            string entryText = pos + " " + players[i].playerName + "  -  " + timeStr + "  -  " + status;
-            SpawnRow(entryText);
+            SpawnRow(i, pos, players[i].playerName, timeStr, status);
         }
     }
 
@@ -304,6 +321,10 @@ public class ResultsPanel : MonoBehaviour
                 if (player.CustomProperties.TryGetValue("AverageSpeed", out object av) && av is float avgS)
                     aSpeed = avgS;
 
+                float bLap = 0f;
+                if (player.CustomProperties.TryGetValue("BestLap", out object bl) && bl is float bestL)
+                    bLap = bestL;
+
                 string name = string.IsNullOrEmpty(player.NickName)
                     ? "Player " + player.ActorNumber : player.NickName;
 
@@ -311,7 +332,7 @@ public class ResultsPanel : MonoBehaviour
                 {
                     playerName = name,
                     finishTime = time,
-                    bestLap = 0f,
+                    bestLap = bLap,
                     topSpeed = tSpeed,
                     averageSpeed = aSpeed,
                     isLocal = false,
@@ -355,7 +376,7 @@ public class ResultsPanel : MonoBehaviour
         return 0;
     }
 
-    private void SpawnRow(string text)
+    private void SpawnRow(int rowIndex, string position, string playerName, string finishTime, string status)
     {
         if (playerRowPrefab != null)
         {
@@ -369,23 +390,53 @@ public class ResultsPanel : MonoBehaviour
                 rowRt.anchorMax = new Vector2(1f, 1f);
                 rowRt.pivot = new Vector2(0.5f, 1f);
                 rowRt.sizeDelta = new Vector2(0f, 40f);
-                rowRt.anchoredPosition = Vector2.zero;
-                rowRt.offsetMin = new Vector2(0f, rowRt.offsetMin.y);
-                rowRt.offsetMax = new Vector2(0f, rowRt.offsetMax.y);
+                rowRt.anchoredPosition = new Vector2(0f, -rowIndex * 40f);
+                rowRt.offsetMin = Vector2.zero;
+                rowRt.offsetMax = Vector2.zero;
             }
 
-            TextMeshProUGUI tmp = row.GetComponentInChildren<TextMeshProUGUI>();
-            if (tmp != null)
+            float rowWidth = 800f;
+            float rowHeight = 40f;
+            float nameWidth = rowWidth * 0.45f;
+            float timeWidth = rowWidth * 0.25f;
+            float statusWidth = rowWidth * 0.30f;
+
+            TextMeshProUGUI[] tmps = row.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (TextMeshProUGUI tmp in tmps)
             {
-                tmp.text = text;
+                string childName = tmp.gameObject.name;
+                RectTransform rt = tmp.rectTransform;
+
+                rt.anchorMin = new Vector2(0f, 0f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                rt.pivot = new Vector2(0f, 0.5f);
+                rt.sizeDelta = Vector2.zero;
+                rt.anchoredPosition = Vector2.zero;
+
                 tmp.overflowMode = TextOverflowModes.Ellipsis;
                 tmp.enableWordWrapping = false;
-                tmp.rectTransform.anchorMin = Vector2.zero;
-                tmp.rectTransform.anchorMax = Vector2.one;
-                tmp.rectTransform.sizeDelta = Vector2.zero;
-                tmp.rectTransform.anchoredPosition = Vector2.zero;
-                tmp.rectTransform.offsetMin = new Vector2(10f, 0f);
-                tmp.rectTransform.offsetMax = new Vector2(-10f, 0f);
+
+                if (childName == "playername")
+                {
+                    tmp.text = position + " " + playerName;
+                    tmp.alignment = TextAlignmentOptions.MidlineLeft;
+                    rt.offsetMin = new Vector2(10f, 0f);
+                    rt.offsetMax = new Vector2(nameWidth, 0f);
+                }
+                else if (childName == "finishtime")
+                {
+                    tmp.text = finishTime;
+                    tmp.alignment = TextAlignmentOptions.MidlineLeft;
+                    rt.offsetMin = new Vector2(nameWidth + 10f, 0f);
+                    rt.offsetMax = new Vector2(nameWidth + timeWidth, 0f);
+                }
+                else if (childName == "status")
+                {
+                    tmp.text = status;
+                    tmp.alignment = TextAlignmentOptions.MidlineRight;
+                    rt.offsetMin = new Vector2(nameWidth + timeWidth + 10f, 0f);
+                    rt.offsetMax = new Vector2(rowWidth - 10f, 0f);
+                }
             }
 
             spawnedRows.Add(row);
@@ -396,7 +447,7 @@ public class ResultsPanel : MonoBehaviour
             go.transform.SetParent(playerListParent, false);
 
             TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text = text;
+            tmp.text = position + " " + playerName + "  -  " + finishTime + "  -  " + status;
             tmp.fontSize = 22;
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.MidlineLeft;
@@ -408,6 +459,7 @@ public class ResultsPanel : MonoBehaviour
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(0f, 36f);
+            rt.anchoredPosition = new Vector2(0f, -rowIndex * 36f);
             rt.offsetMin = new Vector2(10f, 0f);
             rt.offsetMax = new Vector2(-10f, 0f);
 
