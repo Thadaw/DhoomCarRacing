@@ -112,6 +112,7 @@ public class CarSelection : MonoBehaviour
             if (PhotonNetwork.InRoom)
             {
                 Debug.Log("Routing back to Lobby.");
+                PhotonNetwork.AutomaticallySyncScene = true;
                 SceneManager.LoadScene(lobbySceneName);
             }
             else
@@ -134,6 +135,7 @@ public class CarSelection : MonoBehaviour
             GameSession.Instance.IsSelectingFromLobby = false;
             if (PhotonNetwork.InRoom)
             {
+                PhotonNetwork.AutomaticallySyncScene = true;
                 SceneManager.LoadScene(lobbySceneName);
                 return;
             }

@@ -447,6 +447,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         if (GameSession.Instance != null)
             GameSession.Instance.IsSelectingFromLobby = true;
 
+        PhotonNetwork.AutomaticallySyncScene = false;
         SceneManager.LoadScene(garageSceneName);
     }
 
@@ -457,6 +458,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
         if (GameSession.Instance != null)
             GameSession.Instance.IsSelectingFromLobby = true;
 
+        PhotonNetwork.AutomaticallySyncScene = false;
         SceneManager.LoadScene(trackSelectionSceneName);
     }
 
