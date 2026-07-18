@@ -18,7 +18,7 @@ public class PauseMenu : MonoBehaviour
 
     [Header("Player Rows")]
     [SerializeField] private Transform playerListParent;
-    [SerializeField] private TextMeshProUGUI playerRowTemplate;
+    [SerializeField] private GameObject playerRowPrefab;
 
     private bool isPaused = false;
     private List<GameObject> spawnedRows = new List<GameObject>();
@@ -70,10 +70,14 @@ public class PauseMenu : MonoBehaviour
             var go = GameObject.Find("PlayerList");
             if (go != null) playerListParent = go.transform;
         }
-        if (playerRowTemplate == null && playerListParent != null)
+        if (playerRowPrefab == null && playerListParent != null)
         {
-            var tmp = playerListParent.GetComponentInChildren<TextMeshProUGUI>();
-            if (tmp != null) playerRowTemplate = tmp;
+            Transform found = FindChildRecursive(playerListParent, "PlayerRow");
+            if (found != null)
+            {
+                playerRowPrefab = found.gameObject;
+                playerRowPrefab.SetActive(false);
+            }
         }
     }
 
@@ -144,7 +148,7 @@ public class PauseMenu : MonoBehaviour
                 ? FormatTime(players[i].time)
                 : "Racing...";
             string entryText = pos + " " + players[i].name + "  -  " + timeStr;
-            SpawnPlayerRow(entryText);
+            SpawnPlayerRow(entryText, i);
         }
     }
 
@@ -164,7 +168,7 @@ public class PauseMenu : MonoBehaviour
             {
                 isLocal = pv.IsMine;
                 if (isLocal)
-                    name = "You";
+                    name = PlayerNameHelper.GetPlayerName();
                 else
                 {
                     Photon.Realtime.Player owner = pv.Owner;
@@ -222,40 +226,16 @@ public class PauseMenu : MonoBehaviour
         return players;
     }
 
-    private void SpawnPlayerRow(string text)
+    private void SpawnPlayerRow(string text, int rowIndex)
     {
-        if (playerRowTemplate != null)
+        if (playerRowPrefab != null)
         {
-            GameObject row = Instantiate(playerRowTemplate.gameObject, playerListParent);
+            GameObject row = Instantiate(playerRowPrefab, playerListParent);
             row.SetActive(true);
 
-            RectTransform rowRt = row.GetComponent<RectTransform>();
-            if (rowRt != null)
-            {
-                rowRt.anchorMin = new Vector2(0f, 1f);
-                rowRt.anchorMax = new Vector2(1f, 1f);
-                rowRt.pivot = new Vector2(0.5f, 1f);
-                rowRt.sizeDelta = new Vector2(0f, 40f);
-                rowRt.anchoredPosition = Vector2.zero;
-                rowRt.offsetMin = new Vector2(0f, rowRt.offsetMin.y);
-                rowRt.offsetMax = new Vector2(0f, rowRt.offsetMax.y);
-            }
-
-            TextMeshProUGUI tmp = row.GetComponent<TextMeshProUGUI>();
-            if (tmp == null)
-                tmp = row.GetComponentInChildren<TextMeshProUGUI>();
+            TextMeshProUGUI tmp = row.GetComponentInChildren<TextMeshProUGUI>();
             if (tmp != null)
-            {
                 tmp.text = text;
-                tmp.overflowMode = TextOverflowModes.Ellipsis;
-                tmp.enableWordWrapping = false;
-                tmp.rectTransform.anchorMin = Vector2.zero;
-                tmp.rectTransform.anchorMax = Vector2.one;
-                tmp.rectTransform.sizeDelta = Vector2.zero;
-                tmp.rectTransform.anchoredPosition = Vector2.zero;
-                tmp.rectTransform.offsetMin = new Vector2(10f, 0f);
-                tmp.rectTransform.offsetMax = new Vector2(-10f, 0f);
-            }
 
             spawnedRows.Add(row);
         }
@@ -277,6 +257,7 @@ public class PauseMenu : MonoBehaviour
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(0f, 36f);
+            rt.anchoredPosition = new Vector2(0f, -rowIndex * 36f);
             rt.offsetMin = new Vector2(10f, 0f);
             rt.offsetMax = new Vector2(-10f, 0f);
 
@@ -292,6 +273,19 @@ public class PauseMenu : MonoBehaviour
                 Destroy(row);
         }
         spawnedRows.Clear();
+    }
+
+    private Transform FindChildRecursive(Transform parent, string name)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == name)
+                return child;
+            Transform found = FindChildRecursive(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
     }
 
     private string FormatTime(float time)
