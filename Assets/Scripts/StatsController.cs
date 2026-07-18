@@ -72,7 +72,7 @@ public class StatsController : MonoBehaviour
         playerNameText = playerNameObj.GetComponent<TMP_Text>();
         if (playerNameText == null) return;
 
-        playerNameText.text = PlayerPrefs.GetString("PlayerName", "Player");
+        playerNameText.text = PlayerNameHelper.GetPlayerName();
         if (cachedFont == null) cachedFont = playerNameText.font;
 
         TMP_InputField existingInput = playerNameObj.GetComponent<TMP_InputField>();
@@ -81,8 +81,7 @@ public class StatsController : MonoBehaviour
             existingInput.onValueChanged.AddListener(val =>
             {
                 if (string.IsNullOrEmpty(val)) return;
-                PlayerPrefs.SetString("PlayerName", val);
-                PhotonNetwork.NickName = val;
+                PlayerNameHelper.SetPlayerName(val);
             });
         }
 
@@ -167,8 +166,7 @@ public class StatsController : MonoBehaviour
             PlayClickSound();
             string val = nameEditInput.text;
             if (string.IsNullOrEmpty(val)) return;
-            PlayerPrefs.SetString("PlayerName", val);
-            PhotonNetwork.NickName = val;
+            PlayerNameHelper.SetPlayerName(val);
             playerNameText.text = val;
             nameEditPanel.SetActive(false);
         });
@@ -276,8 +274,7 @@ public class StatsController : MonoBehaviour
         logoutButton.onClick.AddListener(() =>
         {
             PlayClickSound();
-            PlayerPrefs.SetString("PlayerName", "Player");
-            PhotonNetwork.NickName = "Player";
+            PlayerNameHelper.Logout();
             SceneSwitcher ss = FindSceneSwitcher();
             if (ss != null)
                 ss.SceneLoder("MainMenu");
@@ -338,7 +335,7 @@ public class StatsController : MonoBehaviour
                 return;
             }
 
-            string myName = PlayerPrefs.GetString("PlayerName", "Player");
+            string myName = PlayerNameHelper.GetPlayerName();
             for (int i = 0; i < entries.Count; i++)
                 CreateEntry(leaderboardListParent, i + 1, entries[i].playerName, entries[i].finishTime, entries[i].playerName == myName);
 

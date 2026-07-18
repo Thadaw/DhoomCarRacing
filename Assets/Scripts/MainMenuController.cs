@@ -60,7 +60,7 @@ public class MainMenuController : MonoBehaviour
         mainCanvas = FindFirstObjectByType<Canvas>();
         if (mainCanvas == null) return;
 
-        string currentName = PlayerPrefs.GetString("PlayerName", "Player");
+        string currentName = PlayerNameHelper.GetPlayerName();
         PhotonNetwork.NickName = currentName;
         if (playerNameText != null)
             playerNameText.text = currentName;
@@ -90,8 +90,7 @@ public class MainMenuController : MonoBehaviour
                 return;
             }
 
-            PlayerPrefs.SetString("PlayerName", googleName);
-            PhotonNetwork.NickName = googleName;
+            PlayerNameHelper.SetGoogleName(googleName);
             if (playerNameText != null)
                 playerNameText.text = googleName;
             googleSignInBtn.gameObject.SetActive(false);

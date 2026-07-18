@@ -142,7 +142,7 @@ public class SinglePlayerFinishPanel : MonoBehaviour
         if (finishPanel != null)
             finishPanel.SetActive(true);
 
-        string playerName = PlayerPrefs.GetString("PlayerName", "Player");
+        string playerName = PlayerNameHelper.GetPlayerName();
 
         float bestLap = 0f;
         if (tracker.lapTimes != null && tracker.lapTimes.Count > 0)

@@ -204,7 +204,7 @@ public class PlayerLapTracker : MonoBehaviour
             PhotonNetwork.LocalPlayer.SetCustomProperties(props);
         }
 
-        string playerName = PlayerPrefs.GetString("PlayerName", "Player");
+        string playerName = PlayerNameHelper.GetPlayerName();
         string trackId = GameSession.Instance != null ? GameSession.Instance.SelectedTrackId : "Unknown";
         FirebaseManager.EnsureExists();
         LeaderboardManager.EnsureExists();

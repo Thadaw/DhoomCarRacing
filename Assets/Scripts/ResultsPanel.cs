@@ -46,10 +46,11 @@ public class ResultsPanel : MonoBehaviour
 
     private void Start()
     {
+        TryFindUI();
+
         if (resultsPanel != null)
             resultsPanel.SetActive(false);
 
-        TryFindUI();
         EnsurePlayerListMask();
 
         if (closeButton != null)
@@ -97,10 +98,20 @@ public class ResultsPanel : MonoBehaviour
             if (go == null) go = GameObject.Find("PlayerList");
             if (go != null) playerListParent = go.transform;
         }
-        if (playerRowPrefab == null)
+        if (playerListParent == null && resultsPanel != null)
         {
-            var go = GameObject.Find("playerrow 1");
-            if (go != null) playerRowPrefab = go;
+            Transform found = FindChildRecursive(resultsPanel.transform, "playerlist");
+            if (found == null) found = FindChildRecursive(resultsPanel.transform, "PlayerList");
+            if (found != null) playerListParent = found;
+        }
+        if (playerRowPrefab == null && resultsPanel != null)
+        {
+            Transform found = FindChildRecursive(resultsPanel.transform, "playerrow 1");
+            if (found != null)
+            {
+                playerRowPrefab = found.gameObject;
+                playerRowPrefab.SetActive(false);
+            }
         }
         if (positionText == null)
         {
@@ -149,6 +160,19 @@ public class ResultsPanel : MonoBehaviour
         }
     }
 
+    private Transform FindChildRecursive(Transform parent, string name)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == name)
+                return child;
+            Transform found = FindChildRecursive(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
     private void EnsurePlayerListMask()
     {
         if (playerListParent == null)
@@ -162,6 +186,20 @@ public class ResultsPanel : MonoBehaviour
             Image img = playerListParent.gameObject.AddComponent<Image>();
             img.color = new Color(0f, 0f, 0f, 0.01f);
         }
+
+        VerticalLayoutGroup vlg = playerListParent.GetComponent<VerticalLayoutGroup>();
+        if (vlg == null) vlg = playerListParent.gameObject.AddComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.UpperCenter;
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+        vlg.spacing = 4;
+        vlg.padding = new RectOffset(10, 10, 10, 10);
+
+        ContentSizeFitter csf = playerListParent.GetComponent<ContentSizeFitter>();
+        if (csf == null) csf = playerListParent.gameObject.AddComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     }
 
     private void PlayClickSound()
@@ -255,7 +293,7 @@ public class ResultsPanel : MonoBehaviour
             {
                 isLocal = pv.IsMine;
                 if (isLocal)
-                    name = "You";
+                    name = PlayerNameHelper.GetPlayerName();
                 else
                 {
                     Photon.Realtime.Player owner = pv.Owner;
@@ -383,61 +421,22 @@ public class ResultsPanel : MonoBehaviour
             GameObject row = Instantiate(playerRowPrefab, playerListParent);
             row.SetActive(true);
 
-            RectTransform rowRt = row.GetComponent<RectTransform>();
-            if (rowRt != null)
+            foreach (Transform child in row.transform)
             {
-                rowRt.anchorMin = new Vector2(0f, 1f);
-                rowRt.anchorMax = new Vector2(1f, 1f);
-                rowRt.pivot = new Vector2(0.5f, 1f);
-                rowRt.sizeDelta = new Vector2(0f, 40f);
-                rowRt.anchoredPosition = new Vector2(0f, -rowIndex * 40f);
-                rowRt.offsetMin = Vector2.zero;
-                rowRt.offsetMax = Vector2.zero;
-            }
+                TextMeshProUGUI tmp = child.GetComponent<TextMeshProUGUI>();
+                if (tmp == null) continue;
 
-            float rowWidth = 800f;
-            float rowHeight = 40f;
-            float nameWidth = rowWidth * 0.45f;
-            float timeWidth = rowWidth * 0.25f;
-            float statusWidth = rowWidth * 0.30f;
-
-            TextMeshProUGUI[] tmps = row.GetComponentsInChildren<TextMeshProUGUI>(true);
-            foreach (TextMeshProUGUI tmp in tmps)
-            {
-                string childName = tmp.gameObject.name;
-                RectTransform rt = tmp.rectTransform;
-
-                rt.anchorMin = new Vector2(0f, 0f);
-                rt.anchorMax = new Vector2(0f, 1f);
-                rt.pivot = new Vector2(0f, 0.5f);
-                rt.sizeDelta = Vector2.zero;
-                rt.anchoredPosition = Vector2.zero;
-
-                tmp.overflowMode = TextOverflowModes.Ellipsis;
-                tmp.enableWordWrapping = false;
-
-                if (childName == "playername")
-                {
+                if (child.name == "playername")
                     tmp.text = position + " " + playerName;
-                    tmp.alignment = TextAlignmentOptions.MidlineLeft;
-                    rt.offsetMin = new Vector2(10f, 0f);
-                    rt.offsetMax = new Vector2(nameWidth, 0f);
-                }
-                else if (childName == "finishtime")
-                {
+                else if (child.name == "finishtime")
                     tmp.text = finishTime;
-                    tmp.alignment = TextAlignmentOptions.MidlineLeft;
-                    rt.offsetMin = new Vector2(nameWidth + 10f, 0f);
-                    rt.offsetMax = new Vector2(nameWidth + timeWidth, 0f);
-                }
-                else if (childName == "status")
-                {
+                else if (child.name == "status")
                     tmp.text = status;
-                    tmp.alignment = TextAlignmentOptions.MidlineRight;
-                    rt.offsetMin = new Vector2(nameWidth + timeWidth + 10f, 0f);
-                    rt.offsetMax = new Vector2(rowWidth - 10f, 0f);
-                }
             }
+
+            LayoutElement le = row.GetComponent<LayoutElement>();
+            if (le == null) le = row.AddComponent<LayoutElement>();
+            le.preferredHeight = 40f;
 
             spawnedRows.Add(row);
         }
@@ -452,16 +451,9 @@ public class ResultsPanel : MonoBehaviour
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.MidlineLeft;
             tmp.overflowMode = TextOverflowModes.Ellipsis;
-            tmp.enableWordWrapping = false;
 
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = new Vector2(0f, 36f);
-            rt.anchoredPosition = new Vector2(0f, -rowIndex * 36f);
-            rt.offsetMin = new Vector2(10f, 0f);
-            rt.offsetMax = new Vector2(-10f, 0f);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = 36f;
 
             spawnedRows.Add(go);
         }
