@@ -51,25 +51,33 @@ public class LeaderboardManager : MonoBehaviour
     {
         db = FirebaseFirestore.DefaultInstance;
         ready = true;
+        Debug.Log("LeaderboardManager: Firestore DB ready.");
     }
 
-    private bool EnsureReady()
+    public async Task WaitForReadyAsync(float timeout = 10f)
     {
-        if (!ready)
+        float elapsed = 0f;
+        while (!ready && elapsed < timeout)
         {
-            if (FirebaseManager.Instance != null && FirebaseManager.Instance.Initialized)
+            if (FirebaseManager.Instance != null && FirebaseManager.Instance.Initialized && !ready)
                 InitDb();
+            if (!ready)
+            {
+                await Task.Delay(200);
+                elapsed += 0.2f;
+            }
         }
-        return ready;
+        Debug.Log($"LeaderboardManager: WaitForReady completed. ready={ready}");
     }
 
     public async void SubmitTime(string playerName, string trackId, float finishTime)
     {
         try
         {
-            if (!EnsureReady())
+            await WaitForReadyAsync();
+            if (!ready)
             {
-                Debug.LogWarning("LeaderboardManager: Firebase not ready, skipping submit.");
+                Debug.LogWarning("LeaderboardManager: Firebase not ready after wait, skipping submit.");
                 return;
             }
 
@@ -91,11 +99,54 @@ public class LeaderboardManager : MonoBehaviour
         }
     }
 
+    private LeaderboardEntry ParseEntry(DocumentSnapshot doc, string fallbackTrackId)
+    {
+        if (!doc.Exists) return null;
+        try
+        {
+            Dictionary<string, object> data = doc.ToDictionary();
+            if (data == null || data.Count == 0) return null;
+
+            string pName = "Unknown";
+            if (data.ContainsKey("playerName") && data["playerName"] != null)
+                pName = data["playerName"].ToString();
+
+            string tId = fallbackTrackId;
+            if (data.ContainsKey("trackId") && data["trackId"] != null)
+                tId = data["trackId"].ToString();
+
+            float fTime = 0f;
+            if (data.ContainsKey("finishTime") && data["finishTime"] != null)
+                fTime = System.Convert.ToSingle(data["finishTime"]);
+
+            string uId = "";
+            if (data.ContainsKey("userId") && data["userId"] != null)
+                uId = data["userId"].ToString();
+
+            if (fTime <= 0f) return null;
+
+            return new LeaderboardEntry
+            {
+                playerName = pName,
+                trackId = tId,
+                finishTime = fTime,
+                userId = uId
+            };
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"LeaderboardManager: ParseEntry failed for doc {doc.Id}: {ex.Message}");
+            return null;
+        }
+    }
+
     public async Task<List<LeaderboardEntry>> GetLeaderboard(string trackId, int limit = 20)
     {
+        await WaitForReadyAsync();
+
         List<LeaderboardEntry> entries = new List<LeaderboardEntry>();
 
-        if (!EnsureReady())
+        if (!ready)
         {
             Debug.LogWarning("LeaderboardManager: Firebase not ready, returning empty.");
             return entries;
@@ -103,32 +154,62 @@ public class LeaderboardManager : MonoBehaviour
 
         try
         {
-            Query query = db.Collection("leaderboards")
+            QuerySnapshot snapshot = await db.Collection("leaderboards")
                 .WhereEqualTo("trackId", trackId)
-                .OrderBy("finishTime")
-                .Limit(limit);
-
-            QuerySnapshot snapshot = await query.GetSnapshotAsync();
+                .GetSnapshotAsync();
 
             foreach (DocumentSnapshot doc in snapshot.Documents)
             {
-                if (doc.Exists)
-                {
-                    Dictionary<string, object> data = doc.ToDictionary();
-                    LeaderboardEntry entry = new LeaderboardEntry
-                    {
-                        playerName = data.ContainsKey("playerName") ? data["playerName"].ToString() : "Unknown",
-                        trackId = data.ContainsKey("trackId") ? data["trackId"].ToString() : trackId,
-                        finishTime = data.ContainsKey("finishTime") ? System.Convert.ToSingle(data["finishTime"]) : 0f,
-                        userId = data.ContainsKey("userId") ? data["userId"].ToString() : ""
-                    };
-                    entries.Add(entry);
-                }
+                LeaderboardEntry entry = ParseEntry(doc, trackId);
+                if (entry != null) entries.Add(entry);
             }
+
+            entries.Sort((a, b) => a.finishTime.CompareTo(b.finishTime));
+            if (entries.Count > limit)
+                entries.RemoveRange(limit, entries.Count - limit);
+
+            Debug.Log($"LeaderboardManager: Got {entries.Count} entries for track '{trackId}'");
         }
         catch (Exception ex)
         {
-            Debug.LogError($"LeaderboardManager: GetLeaderboard failed: {ex.Message}");
+            Debug.LogError($"LeaderboardManager: GetLeaderboard failed: {ex.Message}\n{ex.StackTrace}");
+        }
+
+        return entries;
+    }
+
+    public async Task<List<LeaderboardEntry>> GetAllLeaderboard(int limit = 50)
+    {
+        await WaitForReadyAsync();
+
+        List<LeaderboardEntry> entries = new List<LeaderboardEntry>();
+
+        if (!ready)
+        {
+            Debug.LogWarning("LeaderboardManager: Firebase not ready, returning empty.");
+            return entries;
+        }
+
+        try
+        {
+            QuerySnapshot snapshot = await db.Collection("leaderboards")
+                .GetSnapshotAsync();
+
+            foreach (DocumentSnapshot doc in snapshot.Documents)
+            {
+                LeaderboardEntry entry = ParseEntry(doc, "Unknown");
+                if (entry != null) entries.Add(entry);
+            }
+
+            entries.Sort((a, b) => a.finishTime.CompareTo(b.finishTime));
+            if (entries.Count > limit)
+                entries.RemoveRange(limit, entries.Count - limit);
+
+            Debug.Log($"LeaderboardManager: Got {entries.Count} total entries across all tracks");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"LeaderboardManager: GetAllLeaderboard failed: {ex.Message}\n{ex.StackTrace}");
         }
 
         return entries;

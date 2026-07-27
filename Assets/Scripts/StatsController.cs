@@ -14,6 +14,10 @@ public class StatsController : MonoBehaviour
     private Transform leaderboardListParent;
     private bool leaderboardLoading = false;
     private TMP_FontAsset cachedFont;
+    private GameObject playerRowPrefab;
+
+    private TMP_Text playerNameText;
+    private TMP_Text playTimeText;
 
     private void PlayClickSound()
     {
@@ -26,6 +30,9 @@ public class StatsController : MonoBehaviour
         FirebaseManager.EnsureExists();
         LeaderboardManager.EnsureExists();
 
+        playerRowPrefab = Resources.Load<GameObject>("PlayerRow");
+        Debug.Log($"StatsController: PlayerRow prefab loaded: {(playerRowPrefab != null ? "YES" : "NO - will use fallback")}");
+
         SetupTitle();
         SetupPlayerName();
         SetupPlayTime();
@@ -37,13 +44,16 @@ public class StatsController : MonoBehaviour
 
     private void SetupTitle()
     {
-        GameObject leaderboardTitle = GameObject.Find("Leaderboard");
-        if (leaderboardTitle != null)
+        GameObject statsObj = GameObject.Find("stats");
+        if (statsObj != null)
         {
-            TMP_Text titleText = leaderboardTitle.GetComponent<TMP_Text>();
+            TMP_Text titleText = statsObj.GetComponent<TMP_Text>();
             if (titleText != null)
             {
                 titleText.text = "Stats";
+                titleText.fontSize = 36;
+                titleText.fontStyle = FontStyles.Bold;
+                titleText.alignment = TextAlignmentOptions.Center;
                 if (cachedFont == null) cachedFont = titleText.font;
             }
         }
@@ -62,18 +72,27 @@ public class StatsController : MonoBehaviour
 
     private GameObject nameEditPanel;
     private TMP_InputField nameEditInput;
-    private TMP_Text playerNameText;
 
     private void SetupPlayerName()
     {
         GameObject playerNameObj = GameObject.Find("playername");
-        if (playerNameObj == null) return;
+        if (playerNameObj == null)
+        {
+            Debug.LogWarning("StatsController: 'playername' object not found in scene.");
+            return;
+        }
 
         playerNameText = playerNameObj.GetComponent<TMP_Text>();
-        if (playerNameText == null) return;
+        if (playerNameText == null)
+        {
+            Debug.LogWarning("StatsController: 'playername' has no TMP_Text component.");
+            return;
+        }
 
         playerNameText.text = PlayerNameHelper.GetPlayerName();
         if (cachedFont == null) cachedFont = playerNameText.font;
+
+        Debug.Log($"StatsController: Player name set to '{playerNameText.text}'");
 
         TMP_InputField existingInput = playerNameObj.GetComponent<TMP_InputField>();
         if (existingInput != null)
@@ -85,7 +104,6 @@ public class StatsController : MonoBehaviour
             });
         }
 
-        // Edit button beside the name
         RectTransform nameRt = playerNameObj.GetComponent<RectTransform>();
         float btnX = nameRt.anchoredPosition.x + nameRt.sizeDelta.x / 2f + 8f;
         float btnY = nameRt.anchoredPosition.y;
@@ -114,7 +132,6 @@ public class StatsController : MonoBehaviour
         eTmp.alignment = TextAlignmentOptions.Center;
         eTmp.color = Color.white;
 
-        // Edit panel (hidden - below the name field)
         nameEditPanel = new GameObject("NameEditPanel", typeof(RectTransform), typeof(Image));
         nameEditPanel.transform.SetParent(playerNameObj.transform.parent, false);
         RectTransform epRt = nameEditPanel.GetComponent<RectTransform>();
@@ -125,7 +142,6 @@ public class StatsController : MonoBehaviour
         nameEditPanel.GetComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f, 0.95f);
         nameEditPanel.SetActive(false);
 
-        // Input field in panel
         GameObject inputGo = new GameObject("InputField", typeof(RectTransform), typeof(Image));
         inputGo.transform.SetParent(nameEditPanel.transform, false);
         RectTransform iRt = inputGo.GetComponent<RectTransform>();
@@ -159,7 +175,6 @@ public class StatsController : MonoBehaviour
         nameEditInput.text = playerNameText.text;
         nameEditInput.characterLimit = 16;
 
-        // Save button
         Button saveBtn = CreateSimpleButton(nameEditPanel.transform, "Save", new Vector2(-60, -30), new Vector2(80, 36), new Color(0.2f, 0.6f, 0.2f));
         saveBtn.onClick.AddListener(() =>
         {
@@ -171,7 +186,6 @@ public class StatsController : MonoBehaviour
             nameEditPanel.SetActive(false);
         });
 
-        // Cancel button
         Button cancelBtn = CreateSimpleButton(nameEditPanel.transform, "Cancel", new Vector2(60, -30), new Vector2(80, 36), new Color(0.6f, 0.2f, 0.2f));
         cancelBtn.onClick.AddListener(() => { PlayClickSound(); nameEditPanel.SetActive(false); });
 
@@ -214,10 +228,21 @@ public class StatsController : MonoBehaviour
     private void SetupPlayTime()
     {
         GameObject timeCount = GameObject.Find("Totalplaytimecount");
-        if (timeCount == null) return;
+        if (timeCount == null)
+        {
+            Debug.LogWarning("StatsController: 'Totalplaytimecount' not found.");
+            return;
+        }
 
-        TMP_Text timeText = timeCount.GetComponent<TMP_Text>();
-        if (timeText == null) return;
+        playTimeText = timeCount.GetComponent<TMP_Text>();
+        if (playTimeText == null) return;
+
+        UpdatePlayTime();
+    }
+
+    private void UpdatePlayTime()
+    {
+        if (playTimeText == null) return;
 
         float totalSeconds = PlayTimeTracker.TotalPlayTime;
         int hours = Mathf.FloorToInt(totalSeconds / 3600f);
@@ -232,7 +257,7 @@ public class StatsController : MonoBehaviour
         else
             timeStr = $"{seconds}s";
 
-        timeText.text = timeStr;
+        playTimeText.text = timeStr;
     }
 
     private SceneSwitcher FindSceneSwitcher()
@@ -254,6 +279,8 @@ public class StatsController : MonoBehaviour
         backButton.onClick.AddListener(() =>
         {
             PlayClickSound();
+            if (AudioManager.instance != null)
+                AudioManager.instance.playMenuMusic();
             SceneSwitcher ss = FindSceneSwitcher();
             if (ss != null)
                 ss.SceneLoder("MainMenu");
@@ -275,6 +302,8 @@ public class StatsController : MonoBehaviour
         {
             PlayClickSound();
             PlayerNameHelper.Logout();
+            if (AudioManager.instance != null)
+                AudioManager.instance.playMenuMusic();
             SceneSwitcher ss = FindSceneSwitcher();
             if (ss != null)
                 ss.SceneLoder("MainMenu");
@@ -285,68 +314,150 @@ public class StatsController : MonoBehaviour
 
     private void CreateLeaderboardListArea()
     {
-        GameObject leaderboardTitle = GameObject.Find("Leaderboard");
-        if (leaderboardTitle == null) return;
+        GameObject statsObj = GameObject.Find("stats");
+        Transform parent;
 
-        GameObject listGo = new GameObject("LeaderboardEntries", typeof(RectTransform));
-        listGo.transform.SetParent(leaderboardTitle.transform.parent, false);
+        if (statsObj != null)
+        {
+            parent = statsObj.transform;
+            TMP_Text existingText = statsObj.GetComponent<TMP_Text>();
+            if (existingText != null)
+                existingText.text = "";
+        }
+        else
+        {
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            parent = canvas != null ? canvas.transform : transform;
+        }
 
-        RectTransform lRt = listGo.GetComponent<RectTransform>();
-        lRt.anchorMin = new Vector2(0.5f, 0.5f);
-        lRt.anchorMax = new Vector2(0.5f, 0.5f);
-        lRt.sizeDelta = new Vector2(600f, 250f);
-        lRt.anchoredPosition = new Vector2(0f, -20f);
+        GameObject scrollGo = new GameObject("LeaderboardScroll", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
+        scrollGo.transform.SetParent(parent, false);
+        RectTransform scrollRt = scrollGo.GetComponent<RectTransform>();
+        scrollRt.anchorMin = new Vector2(0f, 0f);
+        scrollRt.anchorMax = new Vector2(1f, 1f);
+        scrollRt.offsetMin = new Vector2(10f, 10f);
+        scrollRt.offsetMax = new Vector2(-10f, 10f);
+        scrollGo.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);
+        if (scrollGo.GetComponent<Mask>() == null)
+            scrollGo.AddComponent<Mask>().showMaskGraphic = false;
 
-        leaderboardListParent = listGo.transform;
+        ScrollRect scrollRect = scrollGo.GetComponent<ScrollRect>();
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+        scrollRect.movementType = ScrollRect.MovementType.Elastic;
+        scrollRect.scrollSensitivity = 30f;
+
+        GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(CanvasRenderer), typeof(ContentSizeFitter), typeof(VerticalLayoutGroup));
+        contentGo.transform.SetParent(scrollGo.transform, false);
+        RectTransform contentRt = contentGo.GetComponent<RectTransform>();
+        contentRt.anchorMin = new Vector2(0f, 1f);
+        contentRt.anchorMax = new Vector2(1f, 1f);
+        contentRt.pivot = new Vector2(0.5f, 1f);
+        contentRt.sizeDelta = new Vector2(0f, 0f);
+        ContentSizeFitter csf = contentGo.GetComponent<ContentSizeFitter>();
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        VerticalLayoutGroup vlg = contentGo.GetComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.UpperCenter;
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+        vlg.spacing = 8f;
+        vlg.padding = new RectOffset(10, 10, 10, 10);
+
+        scrollRect.content = contentRt;
+
+        leaderboardListParent = contentGo.transform;
+        Debug.Log("StatsController: Leaderboard scroll area created inside 'stats' object.");
     }
 
     private async void RefreshLeaderboard()
     {
         try
         {
-            if (leaderboardListParent == null || leaderboardLoading) return;
+            if (leaderboardListParent == null)
+            {
+                Debug.LogError("StatsController: leaderboardListParent is null.");
+                return;
+            }
+            if (leaderboardLoading) return;
             leaderboardLoading = true;
 
             foreach (Transform child in leaderboardListParent)
                 Destroy(child.gameObject);
 
-            string trackId = !string.IsNullOrEmpty(GameSession.Instance?.SelectedTrackId)
-                ? GameSession.Instance.SelectedTrackId
-                : "Desert_Track";
+            CreateLayoutText(leaderboardListParent, "Loading...", 20, FontStyles.Normal, TextAlignmentOptions.Center);
 
-            if (LeaderboardManager.Instance == null || FirebaseManager.Instance == null || !FirebaseManager.Instance.Initialized)
+            if (LeaderboardManager.Instance == null)
             {
-                CreateText(leaderboardListParent, "Leaderboard unavailable.\nCheck your internet connection and Firebase setup.", Vector2.zero, 20, FontStyles.Normal, TextAlignmentOptions.Center);
-                leaderboardLoading = false;
+                LeaderboardManager.EnsureExists();
+                await Task.Delay(500);
+            }
+
+            if (LeaderboardManager.Instance == null)
+            {
+                ClearAndShow("Leaderboard unavailable.\nCheck your internet connection.");
                 return;
             }
 
-            CreateText(leaderboardListParent, "Loading...", Vector2.zero, 20, FontStyles.Normal, TextAlignmentOptions.Center);
+            string trackId = GameSession.Instance?.SelectedTrackId ?? "";
+            Debug.Log($"StatsController: SelectedTrackId = '{trackId}'");
 
-            List<LeaderboardEntry> entries = await LeaderboardManager.Instance.GetLeaderboard(trackId, 20);
+            List<LeaderboardEntry> entries = new List<LeaderboardEntry>();
 
-            foreach (Transform child in leaderboardListParent)
-                Destroy(child.gameObject);
+            if (!string.IsNullOrEmpty(trackId))
+            {
+                Debug.Log($"StatsController: Fetching leaderboard for track '{trackId}'");
+                entries = await LeaderboardManager.Instance.GetLeaderboard(trackId, 20);
+                Debug.Log($"StatsController: Got {entries.Count} entries for track '{trackId}'");
+            }
 
             if (entries.Count == 0)
             {
-                CreateText(leaderboardListParent, "No times recorded yet.", Vector2.zero, 20, FontStyles.Normal, TextAlignmentOptions.Center);
-                leaderboardLoading = false;
+                Debug.Log("StatsController: No track-specific entries, fetching ALL entries");
+                entries = await LeaderboardManager.Instance.GetAllLeaderboard(50);
+                Debug.Log($"StatsController: Got {entries.Count} total entries");
+            }
+
+            List<GameObject> toDestroy = new List<GameObject>();
+            foreach (Transform child in leaderboardListParent)
+                toDestroy.Add(child.gameObject);
+            foreach (GameObject go in toDestroy)
+                Destroy(go);
+
+            if (entries.Count == 0)
+            {
+                ClearAndShow("No times recorded yet.\nComplete a race to see stats here.");
                 return;
             }
 
             string myName = PlayerNameHelper.GetPlayerName();
-            for (int i = 0; i < entries.Count; i++)
-                CreateEntry(leaderboardListParent, i + 1, entries[i].playerName, entries[i].finishTime, entries[i].playerName == myName);
+            float myBestTime = float.MaxValue;
+            int myPosition = -1;
 
-            CreateText(leaderboardListParent, $"Track: {trackId}", new Vector2(0f, -entries.Count * 40f - 20f), 14, FontStyles.Normal, TextAlignmentOptions.Center);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                bool isMe = entries[i].playerName == myName;
+                CreateEntry(leaderboardListParent, i + 1, entries[i].playerName, entries[i].finishTime, entries[i].trackId, isMe);
+                if (isMe && entries[i].finishTime < myBestTime)
+                {
+                    myBestTime = entries[i].finishTime;
+                    myPosition = i + 1;
+                }
+            }
+
+            string footerText;
+            if (myPosition > 0)
+                footerText = $"Your Position: {GetPositionStr(myPosition)} | Best Time: {FormatTime(myBestTime)}";
+            else
+                footerText = !string.IsNullOrEmpty(trackId) ? $"Track: {trackId}" : "All Tracks";
+
+            CreateFooterText(leaderboardListParent, footerText);
         }
         catch (Exception ex)
         {
             Debug.LogError($"StatsController: RefreshLeaderboard failed: {ex.Message}\n{ex.StackTrace}");
-            foreach (Transform child in leaderboardListParent)
-                Destroy(child.gameObject);
-            CreateText(leaderboardListParent, "Failed to load leaderboard.", Vector2.zero, 20, FontStyles.Normal, TextAlignmentOptions.Center);
+            ClearAndShow("Failed to load leaderboard.");
         }
         finally
         {
@@ -354,13 +465,22 @@ public class StatsController : MonoBehaviour
         }
     }
 
-    private void CreateEntry(Transform parent, int position, string playerName, float time, bool isCurrentPlayer = false)
+    private void ClearAndShow(string message)
+    {
+        if (leaderboardListParent == null) return;
+        List<GameObject> toDestroy = new List<GameObject>();
+        foreach (Transform child in leaderboardListParent)
+            toDestroy.Add(child.gameObject);
+        foreach (GameObject go in toDestroy)
+            Destroy(go);
+        CreateLayoutText(leaderboardListParent, message, 20, FontStyles.Normal, TextAlignmentOptions.Center);
+    }
+
+    private void CreateEntry(Transform parent, int position, string playerName, float time, string trackId, bool isCurrentPlayer = false)
     {
         string prefix = isCurrentPlayer ? "★ " : "";
-        string posStr = position switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => position + "th" };
-
-        int minutes = Mathf.FloorToInt(time / 60f);
-        float seconds = time % 60f;
+        string posStr = GetPositionStr(position);
+        string timeStr = FormatTime(time);
 
         Color textColor = position switch
         {
@@ -372,23 +492,129 @@ public class StatsController : MonoBehaviour
         if (isCurrentPlayer)
             textColor = new Color(0.3f, 1f, 0.3f);
 
-        GameObject go = new GameObject("Entry", typeof(RectTransform));
+        string entryText = $"{prefix}{posStr}. {playerName}  -  {timeStr}";
+
+        // Larger entry height (~130px) so ~5 entries fit in view
+        float entryHeight = 130f;
+        float entryFontSize = 36;
+
+        if (playerRowPrefab != null)
+        {
+            GameObject go = Instantiate(playerRowPrefab, parent);
+            go.name = $"Entry_{position}";
+            go.SetActive(true);
+
+            LayoutElement le = go.GetComponent<LayoutElement>();
+            if (le == null) le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = entryHeight;
+            le.preferredWidth = 880f;
+
+            RectTransform rt = go.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(0.5f, 1f);
+                rt.sizeDelta = new Vector2(0f, entryHeight);
+            }
+
+            TMP_Text tmp = go.GetComponentInChildren<TMP_Text>();
+            if (tmp != null)
+            {
+                tmp.text = entryText;
+                tmp.color = textColor;
+                tmp.fontSize = entryFontSize;
+                tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            else
+            {
+                Debug.LogWarning("StatsController: PlayerRow has no TMP_Text child.");
+            }
+        }
+        else
+        {
+            Debug.Log("StatsController: Using fallback text creation (no prefab).");
+            GameObject go = new GameObject("Entry_" + position, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+
+            LayoutElement entryLe = go.GetComponent<LayoutElement>();
+            entryLe.preferredHeight = entryHeight;
+            entryLe.preferredWidth = 880f;
+
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, entryHeight);
+
+            TMP_Text tmp = go.GetComponent<TextMeshProUGUI>();
+            if (cachedFont != null) tmp.font = cachedFont;
+            tmp.text = entryText;
+            tmp.fontSize = entryFontSize;
+            tmp.color = textColor;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            tmp.rectTransform.offsetMin = new Vector2(20f, 0f);
+            tmp.rectTransform.offsetMax = new Vector2(-20f, 0f);
+        }
+    }
+
+    private static string GetPositionStr(int pos) => pos switch { 1 => "1st", 2 => "2nd", 3 => "3rd", _ => pos + "th" };
+
+    private static string FormatTime(float time)
+    {
+        int minutes = Mathf.FloorToInt(time / 60f);
+        float seconds = time % 60f;
+        return $"{minutes}:{seconds:00.00}";
+    }
+
+    private void CreateFooterText(Transform parent, string text)
+    {
+        GameObject go = new GameObject("Footer", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
         go.transform.SetParent(parent, false);
+
+        LayoutElement le = go.GetComponent<LayoutElement>();
+        le.preferredHeight = 50f;
+        le.preferredWidth = 880f;
 
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0f, 1f);
         rt.anchorMax = new Vector2(1f, 1f);
-        rt.sizeDelta = new Vector2(0f, 34f);
-        rt.anchoredPosition = new Vector2(0f, -position * 38f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.sizeDelta = new Vector2(0f, 50f);
 
-        TMP_Text tmp = go.AddComponent<TextMeshProUGUI>();
+        TMP_Text tmp = go.GetComponent<TextMeshProUGUI>();
         if (cachedFont != null) tmp.font = cachedFont;
-        tmp.text = $"{prefix}{posStr}. {playerName}  -  {minutes}:{seconds:00.00}";
+        tmp.text = text;
         tmp.fontSize = 20;
-        tmp.color = textColor;
-        tmp.alignment = TextAlignmentOptions.MidlineLeft;
-        tmp.rectTransform.offsetMin = new Vector2(20f, 0f);
-        tmp.rectTransform.offsetMax = new Vector2(-20f, 0f);
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+    }
+
+    private TMP_Text CreateLayoutText(Transform parent, string text, int fontSize, FontStyles style, TextAlignmentOptions align)
+    {
+        GameObject go = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI), typeof(LayoutElement));
+        go.transform.SetParent(parent, false);
+
+        LayoutElement le = go.GetComponent<LayoutElement>();
+        le.preferredHeight = 50f;
+        le.preferredWidth = 880f;
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.sizeDelta = new Vector2(0f, 50f);
+
+        TMP_Text tmp = go.GetComponent<TextMeshProUGUI>();
+        if (cachedFont != null) tmp.font = cachedFont;
+        tmp.text = text;
+        tmp.fontSize = fontSize;
+        tmp.fontStyle = style;
+        tmp.alignment = align;
+        tmp.color = Color.white;
+
+        return tmp;
     }
 
     private TMP_Text CreateText(Transform parent, string text, Vector2 pos, int fontSize, FontStyles style, TextAlignmentOptions align)

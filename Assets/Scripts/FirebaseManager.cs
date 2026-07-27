@@ -1,6 +1,7 @@
 using UnityEngine;
 using Firebase;
 using Firebase.Auth;
+using System;
 using System.Threading.Tasks;
 
 public class FirebaseManager : MonoBehaviour
@@ -35,17 +36,31 @@ public class FirebaseManager : MonoBehaviour
 
     private async Task Initialize()
     {
-        DependencyStatus dependencyStatus = await FirebaseApp.CheckAndFixDependenciesAsync();
-        if (dependencyStatus == DependencyStatus.Available)
+        try
         {
-            auth = FirebaseAuth.DefaultInstance;
-            await SignInAnonymously();
-            Initialized = true;
-            Debug.Log("FirebaseManager: Initialized, UserId=" + UserId);
+            DependencyStatus dependencyStatus = await FirebaseApp.CheckAndFixDependenciesAsync();
+            if (dependencyStatus == DependencyStatus.Available)
+            {
+                try
+                {
+                    auth = FirebaseAuth.DefaultInstance;
+                    await SignInAnonymously();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("FirebaseManager: Auth sign-in failed (non-fatal): " + ex.Message);
+                }
+                Initialized = true;
+                Debug.Log("FirebaseManager: Initialized, UserId=" + UserId);
+            }
+            else
+            {
+                Debug.LogError("FirebaseManager: Could not resolve dependencies: " + dependencyStatus);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Debug.LogError("FirebaseManager: Could not resolve dependencies: " + dependencyStatus);
+            Debug.LogError("FirebaseManager: Initialize failed: " + ex.Message);
         }
     }
 
