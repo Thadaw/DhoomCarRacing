@@ -65,7 +65,10 @@ public class MainMenuController : MonoBehaviour
         if (playerNameText != null)
             playerNameText.text = currentName;
 
-        googleSignInBtn = CreateButton(mainCanvas.transform, "Google Sign In", new Vector2(0f, 300f), 360f, 55f, new Color(0.2f, 0.5f, 0.2f));
+        googleSignInBtn = CreateButton(mainCanvas.transform, "Google Sign In", new Vector2(0f, -80f), 360f, 55f, new Color(0.2f, 0.5f, 0.2f));
+        RectTransform btnRt = googleSignInBtn.GetComponent<RectTransform>();
+        btnRt.anchorMin = new Vector2(0.5f, 1f);
+        btnRt.anchorMax = new Vector2(0.5f, 1f);
 
         bool signedIn = currentName != "Player";
         if (signedIn)
@@ -103,6 +106,7 @@ public class MainMenuController : MonoBehaviour
     {
         PlayClickSound();
         GameSession.Instance.IsSelectingFromLobby = false;
+        GameSession.Instance.IsGarageViewOnly = false;
         GameSession.Instance.CurrentMode = GameSession.GameMode.SinglePlayer;
         sceneSwitcher.SceneLoder(GarageSceneName);
     }
@@ -124,6 +128,7 @@ public class MainMenuController : MonoBehaviour
     public void OnGaragePressed()
     {
         PlayClickSound();
+        GameSession.Instance.IsGarageViewOnly = true;
         sceneSwitcher.SceneLoder(GarageSceneName);
     }
 

@@ -106,6 +106,12 @@ public class NetworkCar : MonoBehaviourPun, IPunObservable
             carModel.AddComponent<PlayerLapTracker>();
         }
 
+        // Add car sounds
+        if (!carModel.TryGetComponent<CarSound>(out _))
+        {
+            carModel.AddComponent<CarSound>();
+        }
+
         NetworkCarManager.Instance.RegisterCar(photonView.ViewID, carModel);
     }
 

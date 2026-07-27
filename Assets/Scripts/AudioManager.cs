@@ -45,12 +45,10 @@ public class AudioManager : MonoBehaviour
   {
     if (!IsReady()) return;
 
-    if (musicSource.clip == mainMenuMusic && musicSource.isPlaying)
-      return;
-
+    musicSource.Stop();
     musicSource.clip = mainMenuMusic;
     musicSource.playOnAwake = true;
-    musicSource.volume = 0.2f;
+    musicSource.volume = 0.12f;
     musicSource.Play();
   }
 
@@ -58,9 +56,10 @@ public class AudioManager : MonoBehaviour
   {
     if (!IsReady()) return;
 
+    musicSource.Stop();
     musicSource.clip = MainGameMusic;
     musicSource.playOnAwake = true;
-    musicSource.volume = 0.2f;
+    musicSource.volume = 0.12f;
     musicSource.Play();
   }
 

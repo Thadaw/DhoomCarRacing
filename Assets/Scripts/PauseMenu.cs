@@ -32,19 +32,47 @@ public class PauseMenu : MonoBehaviour
             pausePanel.SetActive(false);
 
         TryFindButtons();
+        BindButtons();
+    }
 
+    public void RefreshUI()
+    {
+        TryFindButtons();
+        BindButtons();
+    }
+
+    private void BindButtons()
+    {
         if (toggleButton != null)
+        {
+            toggleButton.onClick.RemoveAllListeners();
             toggleButton.onClick.AddListener(() => { PlayClickSound(); TogglePause(); });
+        }
         if (resumeButton != null)
+        {
+            resumeButton.onClick.RemoveAllListeners();
             resumeButton.onClick.AddListener(() => { PlayClickSound(); Resume(); });
+        }
         if (restartButton != null)
+        {
+            restartButton.onClick.RemoveAllListeners();
             restartButton.onClick.AddListener(() => { PlayClickSound(); Restart(); });
+        }
         if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.RemoveAllListeners();
             mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+        }
     }
 
     private void TryFindButtons()
     {
+        if (pausePanel == null)
+        {
+            var go = GameObject.Find("pausepanal");
+            if (go == null) go = GameObject.Find("PausePanel");
+            if (go != null) pausePanel = go;
+        }
         if (toggleButton == null)
         {
             var go = GameObject.Find("PauseButton");
@@ -133,21 +161,9 @@ public class PauseMenu : MonoBehaviour
 
         List<PlayerInfo> players = CollectPlayers();
 
-        players.Sort((a, b) =>
-        {
-            if (a.time > 0f && b.time > 0f) return a.time.CompareTo(b.time);
-            if (a.time > 0f) return -1;
-            if (b.time > 0f) return 1;
-            return 0;
-        });
-
         for (int i = 0; i < players.Count; i++)
         {
-            string pos = (i + 1) + ".";
-            string timeStr = players[i].time > 0f
-                ? FormatTime(players[i].time)
-                : "Racing...";
-            string entryText = pos + " " + players[i].name + "  -  " + timeStr;
+            string entryText = players[i].name + " racing";
             SpawnPlayerRow(entryText, i);
         }
     }
@@ -250,7 +266,7 @@ public class PauseMenu : MonoBehaviour
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.MidlineLeft;
             tmp.overflowMode = TextOverflowModes.Ellipsis;
-            tmp.enableWordWrapping = false;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
 
             RectTransform rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 1f);
@@ -311,6 +327,8 @@ public class PauseMenu : MonoBehaviour
     private void GoToMainMenu()
     {
         Time.timeScale = 1f;
+        if (AudioManager.instance != null)
+            AudioManager.instance.playMenuMusic();
         if (PhotonNetwork.InRoom)
             PhotonNetwork.LeaveRoom();
         SceneManager.LoadScene("MainMenu");

@@ -3,6 +3,8 @@ using System.Collections;
 using UnityEngine.UI;
 using TMPro;
 
+#pragma warning disable 0414
+
 namespace SlimUI.ModernMenu{
 	public class UISettingsManager : MonoBehaviour {
 

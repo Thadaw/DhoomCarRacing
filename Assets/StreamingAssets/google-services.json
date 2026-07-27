@@ -2,7 +2,8 @@
   "project_info": {
     "project_number": "192462686702",
     "project_id": "bhoomcarracing",
-    "storage_bucket": "bhoomcarracing.firebasestorage.app"
+    "storage_bucket": "bhoomcarracing.firebasestorage.app",
+    "database_url": "https://bhoomcarracing-default-rtdb.firebaseio.com"
   },
   "client": [
     {

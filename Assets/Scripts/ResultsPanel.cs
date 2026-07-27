@@ -10,7 +10,6 @@ public class ResultsPanel : MonoBehaviour
 {
     [Header("Panel")]
     [SerializeField] private GameObject resultsPanel;
-    [SerializeField] private Button closeButton;
 
     [Header("Leaderboard (Left Side)")]
     [SerializeField] private Transform playerListParent;
@@ -24,10 +23,9 @@ public class ResultsPanel : MonoBehaviour
     [SerializeField] private TextMeshProUGUI averageSpeedText;
 
     [Header("Buttons")]
-    [SerializeField] private Button replayButton;
-    [SerializeField] private Button nextRaceButton;
     [SerializeField] private Button garageButton;
     [SerializeField] private Button mainMenuButton;
+    [SerializeField] private Button profileButton;
 
     [Header("Timing")]
     [SerializeField] private float showDelay = 2f;
@@ -52,17 +50,12 @@ public class ResultsPanel : MonoBehaviour
             resultsPanel.SetActive(false);
 
         EnsurePlayerListMask();
+    }
 
-        if (closeButton != null)
-            closeButton.onClick.AddListener(() => { PlayClickSound(); ClosePanel(); });
-        if (replayButton != null)
-            replayButton.onClick.AddListener(() => { PlayClickSound(); Replay(); });
-        if (nextRaceButton != null)
-            nextRaceButton.onClick.AddListener(() => { PlayClickSound(); NextRace(); });
-        if (garageButton != null)
-            garageButton.onClick.AddListener(() => { PlayClickSound(); GoToGarage(); });
-        if (mainMenuButton != null)
-            mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+    public void RefreshUI()
+    {
+        TryFindUI();
+        EnsurePlayerListMask();
     }
 
     private void OnRaceFinished()
@@ -87,10 +80,11 @@ public class ResultsPanel : MonoBehaviour
             if (go == null) go = GameObject.Find("ResultsPanel");
             if (go != null) resultsPanel = go;
         }
-        if (closeButton == null)
+        if (playerListParent == null && resultsPanel != null)
         {
-            var go = GameObject.Find("CloseButton");
-            if (go != null) closeButton = go.GetComponent<Button>();
+            Transform found = FindChildRecursive(resultsPanel.transform, "playerlist");
+            if (found == null) found = FindChildRecursive(resultsPanel.transform, "PlayerList");
+            if (found != null) playerListParent = found;
         }
         if (playerListParent == null)
         {
@@ -98,15 +92,10 @@ public class ResultsPanel : MonoBehaviour
             if (go == null) go = GameObject.Find("PlayerList");
             if (go != null) playerListParent = go.transform;
         }
-        if (playerListParent == null && resultsPanel != null)
-        {
-            Transform found = FindChildRecursive(resultsPanel.transform, "playerlist");
-            if (found == null) found = FindChildRecursive(resultsPanel.transform, "PlayerList");
-            if (found != null) playerListParent = found;
-        }
         if (playerRowPrefab == null && resultsPanel != null)
         {
             Transform found = FindChildRecursive(resultsPanel.transform, "playerrow 1");
+            if (found == null) found = FindChildRecursive(resultsPanel.transform, "playerrow 1(Clone)");
             if (found != null)
             {
                 playerRowPrefab = found.gameObject;
@@ -130,7 +119,8 @@ public class ResultsPanel : MonoBehaviour
         }
         if (topSpeedText == null)
         {
-            var go = GameObject.Find("topspeed");
+            var go = GameObject.Find("top speed");
+            if (go == null) go = GameObject.Find("topspeed");
             if (go != null) topSpeedText = go.GetComponent<TextMeshProUGUI>();
         }
         if (averageSpeedText == null)
@@ -138,26 +128,56 @@ public class ResultsPanel : MonoBehaviour
             var go = GameObject.Find("avarage speed");
             if (go != null) averageSpeedText = go.GetComponent<TextMeshProUGUI>();
         }
-        if (replayButton == null)
-        {
-            var go = GameObject.Find("ReplayButton");
-            if (go != null) replayButton = go.GetComponent<Button>();
-        }
-        if (nextRaceButton == null)
-        {
-            var go = GameObject.Find("NextRaceButton");
-            if (go != null) nextRaceButton = go.GetComponent<Button>();
-        }
         if (garageButton == null)
         {
-            var go = GameObject.Find("GarageButton");
-            if (go != null) garageButton = go.GetComponent<Button>();
+            Transform t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "garage");
+            if (t == null) t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "GarageButton");
+            if (t == null)
+            {
+                GameObject g = GameObject.Find("garage");
+                if (g != null) t = g.transform;
+            }
+            if (t != null)
+            {
+                garageButton = t.GetComponent<Button>();
+                if (garageButton == null)
+                    garageButton = t.GetComponentInParent<Button>();
+            }
         }
         if (mainMenuButton == null)
         {
-            var go = GameObject.Find("MainMenuButton");
-            if (go != null) mainMenuButton = go.GetComponent<Button>();
+            Transform t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "mainmenu");
+            if (t == null) t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "MainMenuButton");
+            if (t == null)
+            {
+                GameObject g = GameObject.Find("mainmenu");
+                if (g != null) t = g.transform;
+            }
+            if (t != null)
+            {
+                mainMenuButton = t.GetComponent<Button>();
+                if (mainMenuButton == null)
+                    mainMenuButton = t.GetComponentInParent<Button>();
+            }
         }
+        if (profileButton == null)
+        {
+            Transform t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "profile");
+            if (t == null) t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "ProfileButton");
+            if (t == null)
+            {
+                GameObject g = GameObject.Find("profile");
+                if (g != null) t = g.transform;
+            }
+            if (t != null)
+            {
+                profileButton = t.GetComponent<Button>();
+                if (profileButton == null)
+                    profileButton = t.GetComponentInParent<Button>();
+            }
+        }
+
+        Debug.Log("TryFindUI: resultsPanel=" + (resultsPanel != null) + " [" + (resultsPanel != null ? resultsPanel.name : "null") + "] playerListParent=" + (playerListParent != null) + " [" + (playerListParent != null ? playerListParent.name : "null") + "] playerRowPrefab=" + (playerRowPrefab != null) + " [" + (playerRowPrefab != null ? playerRowPrefab.name : "null") + "]");
     }
 
     private Transform FindChildRecursive(Transform parent, string name)
@@ -178,13 +198,18 @@ public class ResultsPanel : MonoBehaviour
         if (playerListParent == null)
             return;
 
+        TextMeshProUGUI strayText = playerListParent.GetComponent<TextMeshProUGUI>();
+        if (strayText != null)
+            strayText.enabled = false;
+
         if (playerListParent.GetComponent<Mask>() == null)
             playerListParent.gameObject.AddComponent<Mask>();
 
         if (playerListParent.GetComponent<Image>() == null)
         {
             Image img = playerListParent.gameObject.AddComponent<Image>();
-            img.color = new Color(0f, 0f, 0f, 0.01f);
+            if (img != null)
+                img.color = new Color(0f, 0f, 0f, 0.01f);
         }
 
         VerticalLayoutGroup vlg = playerListParent.GetComponent<VerticalLayoutGroup>();
@@ -210,9 +235,31 @@ public class ResultsPanel : MonoBehaviour
 
     public void ShowResults()
     {
+        TryFindUI();
+        BindButtons();
         OpenPanel();
         PopulateLeaderboard();
         PopulatePerformance();
+    }
+
+    private void BindButtons()
+    {
+        if (garageButton != null)
+        {
+            garageButton.onClick.RemoveAllListeners();
+            garageButton.onClick.AddListener(() => { PlayClickSound(); GoToGarage(); });
+        }
+        if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.RemoveAllListeners();
+            mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+        }
+        if (profileButton != null)
+        {
+            profileButton.onClick.RemoveAllListeners();
+            profileButton.onClick.AddListener(() => { PlayClickSound(); GoToProfile(); });
+        }
+        Debug.Log("BindButtons: garage=" + (garageButton != null) + " mainmenu=" + (mainMenuButton != null) + " profile=" + (profileButton != null));
     }
 
     public void OpenPanel()
@@ -232,9 +279,13 @@ public class ResultsPanel : MonoBehaviour
         ClearRows();
 
         if (playerListParent == null)
+        {
+            Debug.LogWarning("PopulateLeaderboard: playerListParent is null!");
             return;
+        }
 
         List<PlayerResult> players = CollectPlayers();
+        Debug.Log("PopulateLeaderboard: Found " + players.Count + " players");
 
         players.Sort((a, b) =>
         {
@@ -282,6 +333,7 @@ public class ResultsPanel : MonoBehaviour
         List<PlayerResult> players = new List<PlayerResult>();
 
         PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
+        Debug.Log("CollectPlayers: Found " + trackers.Length + " PlayerLapTracker objects");
 
         foreach (PlayerLapTracker tracker in trackers)
         {
@@ -303,7 +355,12 @@ public class ResultsPanel : MonoBehaviour
                 }
             }
             else
-                name = "Player";
+            {
+                isLocal = true;
+                name = PlayerNameHelper.GetPlayerName();
+            }
+
+            Debug.Log("CollectPlayers: tracker=" + tracker.gameObject.name + " name=" + name + " isLocal=" + isLocal + " finishTime=" + tracker.finishTime);
 
             float bestLap = 0f;
             if (tracker.lapTimes != null && tracker.lapTimes.Count > 0)
@@ -416,22 +473,54 @@ public class ResultsPanel : MonoBehaviour
 
     private void SpawnRow(int rowIndex, string position, string playerName, string finishTime, string status)
     {
+        Debug.Log("SpawnRow: row=" + rowIndex + " pos=" + position + " name=" + playerName + " time=" + finishTime + " status=" + status);
+
         if (playerRowPrefab != null)
         {
             GameObject row = Instantiate(playerRowPrefab, playerListParent);
             row.SetActive(true);
 
+            int childCount = 0;
+            bool foundAny = false;
             foreach (Transform child in row.transform)
             {
+                childCount++;
                 TextMeshProUGUI tmp = child.GetComponent<TextMeshProUGUI>();
-                if (tmp == null) continue;
+                if (tmp == null)
+                    tmp = child.gameObject.AddComponent<TextMeshProUGUI>();
 
                 if (child.name == "playername")
+                {
                     tmp.text = position + " " + playerName;
+                    foundAny = true;
+                    Debug.Log("SpawnRow: Set playername to '" + tmp.text + "'");
+                }
                 else if (child.name == "finishtime")
+                {
                     tmp.text = finishTime;
+                    foundAny = true;
+                    Debug.Log("SpawnRow: Set finishtime to '" + tmp.text + "'");
+                }
                 else if (child.name == "status")
+                {
                     tmp.text = status;
+                    foundAny = true;
+                    Debug.Log("SpawnRow: Set status to '" + tmp.text + "'");
+                }
+            }
+
+            Debug.Log("SpawnRow: prefab children=" + childCount + " foundAny=" + foundAny);
+
+            if (!foundAny)
+            {
+                foreach (Transform child in row.transform)
+                {
+                    TextMeshProUGUI tmp = child.GetComponent<TextMeshProUGUI>();
+                    if (tmp == null) continue;
+                    tmp.text = position + " " + playerName + "  |  " + finishTime + "  |  " + status;
+                    Debug.Log("SpawnRow: Fallback set text on '" + child.name + "' to '" + tmp.text + "'");
+                    break;
+                }
             }
 
             LayoutElement le = row.GetComponent<LayoutElement>();
@@ -445,18 +534,38 @@ public class ResultsPanel : MonoBehaviour
             GameObject go = new GameObject("PlayerRow", typeof(RectTransform));
             go.transform.SetParent(playerListParent, false);
 
-            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text = position + " " + playerName + "  -  " + finishTime + "  -  " + status;
-            tmp.fontSize = 22;
-            tmp.color = Color.white;
-            tmp.alignment = TextAlignmentOptions.MidlineLeft;
-            tmp.overflowMode = TextOverflowModes.Ellipsis;
+            HorizontalLayoutGroup hlg = go.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 20f;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = true;
+
+            CreateRowText(go.transform, "playername", position + " " + playerName, 200f);
+            CreateRowText(go.transform, "finishtime", finishTime, 120f);
+            CreateRowText(go.transform, "status", status, 100f);
 
             LayoutElement le = go.AddComponent<LayoutElement>();
             le.preferredHeight = 36f;
 
             spawnedRows.Add(go);
         }
+    }
+
+    private void CreateRowText(Transform parent, string childName, string text, float width)
+    {
+        GameObject go = new GameObject(childName, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+
+        TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+        tmp.text = text;
+        tmp.fontSize = 20;
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+
+        LayoutElement le = go.AddComponent<LayoutElement>();
+        le.preferredWidth = width;
+        le.minWidth = 60f;
     }
 
     private void ClearRows()
@@ -481,52 +590,6 @@ public class ResultsPanel : MonoBehaviour
         return SceneManager.GetActiveScene().name;
     }
 
-    private string GetNextTrackScene()
-    {
-        string current = GetCurrentSceneName();
-        switch (current)
-        {
-            case "Track1": return "Track2";
-            case "Track2": return "Track3";
-            case "Track3": return "Track1";
-            default: return "Track1";
-        }
-    }
-
-    private void Replay()
-    {
-        Time.timeScale = 1f;
-        string currentScene = GetCurrentSceneName();
-
-        if (PhotonNetwork.InRoom && PhotonNetwork.IsMasterClient)
-            PhotonNetwork.LoadLevel(currentScene);
-        else if (!PhotonNetwork.InRoom)
-            SceneManager.LoadScene(currentScene);
-        else
-            GoToMainMenu();
-    }
-
-    private void NextRace()
-    {
-        Time.timeScale = 1f;
-        string nextScene = GetNextTrackScene();
-
-        if (PhotonNetwork.InRoom && PhotonNetwork.IsMasterClient)
-        {
-            PhotonNetwork.CurrentRoom.IsOpen = false;
-            PhotonNetwork.AutomaticallySyncScene = true;
-            PhotonNetwork.LoadLevel(nextScene);
-        }
-        else if (!PhotonNetwork.InRoom)
-        {
-            SceneManager.LoadScene(nextScene);
-        }
-        else
-        {
-            GoToMainMenu();
-        }
-    }
-
     private void GoToGarage()
     {
         Time.timeScale = 1f;
@@ -538,9 +601,19 @@ public class ResultsPanel : MonoBehaviour
     private void GoToMainMenu()
     {
         Time.timeScale = 1f;
+        if (AudioManager.instance != null)
+            AudioManager.instance.playMenuMusic();
         if (PhotonNetwork.InRoom)
             PhotonNetwork.LeaveRoom();
         SceneManager.LoadScene("MainMenu");
+    }
+
+    private void GoToProfile()
+    {
+        Time.timeScale = 1f;
+        if (PhotonNetwork.InRoom)
+            PhotonNetwork.LeaveRoom();
+        SceneManager.LoadScene("stats");
     }
 
     private class PlayerResult
