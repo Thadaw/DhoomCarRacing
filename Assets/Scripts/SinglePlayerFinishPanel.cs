@@ -20,10 +20,9 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     [SerializeField] private TextMeshProUGUI averageSpeedText;
 
     [Header("Buttons")]
-    [SerializeField] private Button replayButton;
-    [SerializeField] private Button nextRaceButton;
     [SerializeField] private Button garageButton;
     [SerializeField] private Button mainMenuButton;
+    [SerializeField] private Button profileButton;
 
     [Header("Timing")]
     [SerializeField] private float showDelay = 2f;
@@ -44,15 +43,11 @@ public class SinglePlayerFinishPanel : MonoBehaviour
             finishPanel.SetActive(false);
 
         TryFindUI();
+    }
 
-        if (replayButton != null)
-            replayButton.onClick.AddListener(() => { PlayClickSound(); Replay(); });
-        if (nextRaceButton != null)
-            nextRaceButton.onClick.AddListener(() => { PlayClickSound(); NextRace(); });
-        if (garageButton != null)
-            garageButton.onClick.AddListener(() => { PlayClickSound(); GoToGarage(); });
-        if (mainMenuButton != null)
-            mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+    public void RefreshUI()
+    {
+        TryFindUI();
     }
 
     private void TryFindUI()
@@ -85,6 +80,7 @@ public class SinglePlayerFinishPanel : MonoBehaviour
         if (topSpeedText == null)
         {
             var go = GameObject.Find("SPTopSpeed");
+            if (go == null) go = GameObject.Find(" SPTopSpeed");
             if (go != null) topSpeedText = go.GetComponent<TextMeshProUGUI>();
         }
         if (averageSpeedText == null)
@@ -92,25 +88,38 @@ public class SinglePlayerFinishPanel : MonoBehaviour
             var go = GameObject.Find("SPAverageSpeed");
             if (go != null) averageSpeedText = go.GetComponent<TextMeshProUGUI>();
         }
-        if (replayButton == null)
-        {
-            var go = GameObject.Find("ReplayButton");
-            if (go != null) replayButton = go.GetComponent<Button>();
-        }
-        if (nextRaceButton == null)
-        {
-            var go = GameObject.Find("NextRaceButton");
-            if (go != null) nextRaceButton = go.GetComponent<Button>();
-        }
         if (garageButton == null)
         {
-            var go = GameObject.Find("GarageButton");
-            if (go != null) garageButton = go.GetComponent<Button>();
+            var go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "garage");
+            if (go == null) go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "GarageButton");
+            if (go != null)
+            {
+                garageButton = go.GetComponent<Button>();
+                if (garageButton == null)
+                    garageButton = go.GetComponentInParent<Button>();
+            }
         }
         if (mainMenuButton == null)
         {
-            var go = GameObject.Find("MainMenuButton");
-            if (go != null) mainMenuButton = go.GetComponent<Button>();
+            var go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "mainmenu");
+            if (go == null) go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "MainMenuButton");
+            if (go != null)
+            {
+                mainMenuButton = go.GetComponent<Button>();
+                if (mainMenuButton == null)
+                    mainMenuButton = go.GetComponentInParent<Button>();
+            }
+        }
+        if (profileButton == null)
+        {
+            var go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "profile");
+            if (go == null) go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "ProfileButton");
+            if (go != null)
+            {
+                profileButton = go.GetComponent<Button>();
+                if (profileButton == null)
+                    profileButton = go.GetComponentInParent<Button>();
+            }
         }
     }
 
@@ -118,6 +127,26 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     {
         if (AudioManager.instance != null)
             AudioManager.instance.playButtonSound();
+    }
+
+    private void BindButtons()
+    {
+        if (garageButton != null)
+        {
+            garageButton.onClick.RemoveAllListeners();
+            garageButton.onClick.AddListener(() => { PlayClickSound(); GoToGarage(); });
+        }
+        if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.RemoveAllListeners();
+            mainMenuButton.onClick.AddListener(() => { PlayClickSound(); GoToMainMenu(); });
+        }
+        if (profileButton != null)
+        {
+            profileButton.onClick.RemoveAllListeners();
+            profileButton.onClick.AddListener(() => { PlayClickSound(); GoToProfile(); });
+        }
+        Debug.Log("SinglePlayer BindButtons: garage=" + (garageButton != null) + " mainmenu=" + (mainMenuButton != null) + " profile=" + (profileButton != null));
     }
 
     private void OnRaceFinished()
@@ -138,6 +167,9 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     {
         PlayerLapTracker tracker = FindLocalTracker();
         if (tracker == null) return;
+
+        TryFindUI();
+        BindButtons();
 
         if (finishPanel != null)
             finishPanel.SetActive(true);
@@ -181,40 +213,24 @@ public class SinglePlayerFinishPanel : MonoBehaviour
         return null;
     }
 
+    private Transform FindChildByName(Transform parent, string name)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == name)
+                return child;
+            Transform found = FindChildByName(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
     private string FormatTime(float time)
     {
         int minutes = Mathf.FloorToInt(time / 60f);
         float seconds = time % 60f;
         return minutes + ":" + seconds.ToString("00.00");
-    }
-
-    private string GetCurrentSceneName()
-    {
-        return SceneManager.GetActiveScene().name;
-    }
-
-    private string GetNextTrackScene()
-    {
-        string current = GetCurrentSceneName();
-        switch (current)
-        {
-            case "Track1": return "Track2";
-            case "Track2": return "Track3";
-            case "Track3": return "Track1";
-            default: return "Track1";
-        }
-    }
-
-    private void Replay()
-    {
-        Time.timeScale = 1f;
-        SceneManager.LoadScene(GetCurrentSceneName());
-    }
-
-    private void NextRace()
-    {
-        Time.timeScale = 1f;
-        SceneManager.LoadScene(GetNextTrackScene());
     }
 
     private void GoToGarage()
@@ -226,6 +242,14 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     private void GoToMainMenu()
     {
         Time.timeScale = 1f;
+        if (AudioManager.instance != null)
+            AudioManager.instance.playMenuMusic();
         SceneManager.LoadScene("MainMenu");
+    }
+
+    private void GoToProfile()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("stats");
     }
 }

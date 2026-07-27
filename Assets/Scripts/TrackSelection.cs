@@ -65,7 +65,7 @@ public class TrackSelection : MonoBehaviour
             lapCountDropdown.ClearOptions();
             lapCountDropdown.AddOptions(new System.Collections.Generic.List<string>
                 { "1 Lap", "2 Laps", "3 Laps", "5 Laps" });
-            lapCountDropdown.SetValueWithoutNotify(2);
+            lapCountDropdown.SetValueWithoutNotify(0);
         }
     }
 

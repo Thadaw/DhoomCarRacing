@@ -38,6 +38,8 @@ public class MultiplayerMenuController : MonoBehaviour
     public void OnBackPressed()
     {
         PlayClickSound();
+        if (AudioManager.instance != null)
+            AudioManager.instance.playMenuMusic();
         sceneSwitcher.SceneLoder(MainMenuSceneName);
     }
 }

@@ -42,7 +42,7 @@ public class NetworkCarManager : MonoBehaviour
         if (PhotonNetwork.InRoom)
         {
             FindSpawnPointsInScene();
-            SpawnMyNetworkCar();
+            TrySpawnIfReady();
         }
     }
 
@@ -74,7 +74,7 @@ public class NetworkCarManager : MonoBehaviour
         if (PhotonNetwork.InRoom)
         {
             FindSpawnPointsInScene();
-            SpawnMyNetworkCar();
+            TrySpawnIfReady();
         }
     }
 

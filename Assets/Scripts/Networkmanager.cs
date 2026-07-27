@@ -170,13 +170,15 @@ public class Networkmanager : MonoBehaviourPunCallbacks
         if (!string.IsNullOrEmpty(defaultGameVersion) && appSettings.AppVersion != defaultGameVersion)
         {
             appSettings.AppVersion = defaultGameVersion;
+            PhotonNetwork.GameVersion = defaultGameVersion;
             Debug.Log($"Photon game version set to: {defaultGameVersion}");
             changed = true;
         }
 
         if (!string.IsNullOrEmpty(defaultGameVersion) && PhotonNetwork.GameVersion != defaultGameVersion)
         {
-            Debug.LogWarning($"PhotonGameVersion mismatch: current={PhotonNetwork.GameVersion}, expected={defaultGameVersion}");
+            PhotonNetwork.GameVersion = defaultGameVersion;
+            Debug.LogWarning($"PhotonGameVersion mismatch fixed: current={PhotonNetwork.GameVersion}");
         }
 
         return changed;

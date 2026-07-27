@@ -44,6 +44,13 @@ public class CarSelection : MonoBehaviour
                 btn.onClick.AddListener(() => { PlayClickSound(); GoBack(); });
         }
 
+        if (GameSession.Instance != null && GameSession.Instance.IsGarageViewOnly)
+        {
+            GameObject driveBtn = GameObject.Find("DriveButton");
+            if (driveBtn != null)
+                driveBtn.SetActive(false);
+        }
+
         Debug.Log("Car Selection Started. Mode: " +
             (GameSession.Instance != null ? GameSession.Instance.CurrentMode.ToString() : "none"));
     }
@@ -140,6 +147,10 @@ public class CarSelection : MonoBehaviour
                 return;
             }
         }
+        if (GameSession.Instance != null)
+            GameSession.Instance.IsGarageViewOnly = false;
+        if (AudioManager.instance != null)
+            AudioManager.instance.playMenuMusic();
         SceneManager.LoadScene("MainMenu");
     }
 

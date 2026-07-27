@@ -48,6 +48,9 @@ public class GameSession : MonoBehaviour
     [Header("Set when selecting car/track from Lobby")]
     public bool IsSelectingFromLobby = false;
 
+    [Header("Garage View Only Mode")]
+    public bool IsGarageViewOnly = false;
+
     [Header("Race Settings")]
     public int TotalLaps = 3;
 

@@ -7,9 +7,8 @@ public class CarSpawner : MonoBehaviour
 
     private GameObject spawnedCar;
 
-    void Start()
+    void Awake()
     {
-        // In multiplayer, register prefabs with NetworkCarManager instead of spawning
         if (PhotonNetwork.InRoom)
         {
             NetworkCarManager.EnsureExists();
@@ -17,6 +16,14 @@ public class CarSpawner : MonoBehaviour
             {
                 NetworkCarManager.Instance.RegisterCarPrefabs(carsPrefabs);
             }
+        }
+    }
+
+    void Start()
+    {
+        // In multiplayer, register prefabs with NetworkCarManager instead of spawning
+        if (PhotonNetwork.InRoom)
+        {
             return;
         }
 
@@ -62,6 +69,10 @@ public class CarSpawner : MonoBehaviour
         // Add lap tracker for results UI (normally added by NetworkCar in multiplayer)
         if (!spawnedCar.TryGetComponent<PlayerLapTracker>(out _))
             spawnedCar.AddComponent<PlayerLapTracker>();
+
+        // Add car sounds
+        if (!spawnedCar.TryGetComponent<CarSound>(out _))
+            spawnedCar.AddComponent<CarSound>();
 
         AssignCameraTarget(spawnedCar);
     }

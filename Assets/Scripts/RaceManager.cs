@@ -9,6 +9,7 @@ public class RaceManager : MonoBehaviour
     [Header("Race State")]
     public bool raceStarted = false;
     public bool raceFinished = false;
+    public float raceStartTime = 0f;
 
     [Header("Countdown UI")]
     public TextMeshProUGUI countdownText;
@@ -59,6 +60,7 @@ public class RaceManager : MonoBehaviour
         yield return ShowGoText();
 
         raceStarted = true;
+        raceStartTime = Time.time;
 
         yield return new WaitForSeconds(goStayTime);
 
