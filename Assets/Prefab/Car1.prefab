@@ -160,7 +160,7 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 0
+  m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
@@ -187,12 +187,12 @@ MonoBehaviour:
   rearRightTransform: {fileID: 6640057725608162519}
   carRb: {fileID: 4126561223956806429}
   centerOfMass: {fileID: 204396447628746852}
-  motorForce: 100
+  motorForce: 3500
   maxSpeed: 220
   maxSteerAngle: 32
   steeringResponsiveness: 6
   highSpeedSteeringReduction: 0.45
-  brakeForce: 1000
+  brakeForce: 4000
   downforce: 80
   driftFactor: 0.92
   antiRollForce: 6000
