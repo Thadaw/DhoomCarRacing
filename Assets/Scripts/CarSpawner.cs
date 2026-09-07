@@ -1,5 +1,6 @@
 using UnityEngine;
 using Photon.Pun;
+using System.Collections.Generic;
 
 public class CarSpawner : MonoBehaviour
 {
@@ -35,16 +36,49 @@ public class CarSpawner : MonoBehaviour
         return carsPrefabs;
     }
 
-    public void SpawnCar()
+    public GameObject[] GetValidPrefabs()
+    {
+        if (carsPrefabs == null) return new GameObject[0];
+        List<GameObject> valid = new List<GameObject>();
+        for (int i = 0; i < carsPrefabs.Length; i++)
+        {
+            if (carsPrefabs[i] != null)
+                valid.Add(carsPrefabs[i]);
+        }
+        return valid.ToArray();
+    }
+
+    public GameObject SpawnCar()
     {
         if (carsPrefabs == null || carsPrefabs.Length == 0)
         {
             Debug.LogWarning("CarSpawner: No car prefabs assigned.");
-            return;
+            return null;
         }
 
         int currentCarIndex = PlayerPrefs.GetInt("CarIndexValue", 0);
         currentCarIndex = Mathf.Clamp(currentCarIndex, 0, carsPrefabs.Length - 1);
+
+        GameObject selectedPrefab = carsPrefabs[currentCarIndex];
+
+        if (selectedPrefab == null)
+        {
+            for (int i = 0; i < carsPrefabs.Length; i++)
+            {
+                if (carsPrefabs[i] != null)
+                {
+                    selectedPrefab = carsPrefabs[i];
+                    Debug.LogWarning($"CarSpawner: Car at index {currentCarIndex} is null, falling back to index {i}.");
+                    break;
+                }
+            }
+        }
+
+        if (selectedPrefab == null)
+        {
+            Debug.LogWarning("CarSpawner: No valid car prefab found.");
+            return null;
+        }
 
         // Destroy previously spawned car (IMPORTANT FIX)
         if (spawnedCar != null)
@@ -52,8 +86,6 @@ public class CarSpawner : MonoBehaviour
             Destroy(spawnedCar);
             spawnedCar = null;
         }
-
-        GameObject selectedPrefab = carsPrefabs[currentCarIndex];
 
         spawnedCar = Instantiate(
             selectedPrefab,
@@ -75,6 +107,8 @@ public class CarSpawner : MonoBehaviour
             spawnedCar.AddComponent<CarSound>();
 
         AssignCameraTarget(spawnedCar);
+
+        return spawnedCar;
     }
 
     private void AssignCameraTarget(GameObject car)

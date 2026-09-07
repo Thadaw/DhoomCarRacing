@@ -27,7 +27,10 @@ public class CarSelection : MonoBehaviour
         for (int i = 0; i < cars.Length; i++)
         {
             if (cars[i] != null)
+            {
+                EnsurePreviewRigidbody(cars[i]);
                 cars[i].SetActive(false);
+            }
         }
 
         currentCarIndex = GameSession.Instance != null ? GameSession.Instance.SelectedCarId : 0;
@@ -161,5 +164,18 @@ public class CarSelection : MonoBehaviour
         Hashtable props = new Hashtable();
         props["CarId"] = currentCarIndex;
         PhotonNetwork.LocalPlayer.SetCustomProperties(props);
+    }
+
+    private void EnsurePreviewRigidbody(GameObject car)
+    {
+        Rigidbody rb = car.GetComponent<Rigidbody>();
+        if (rb == null)
+            rb = car.GetComponentInChildren<Rigidbody>();
+        if (rb == null)
+        {
+            rb = car.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
     }
 }

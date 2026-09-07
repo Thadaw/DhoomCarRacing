@@ -161,16 +161,36 @@ public class PauseMenu : MonoBehaviour
 
         List<PlayerInfo> players = CollectPlayers();
 
-        for (int i = 0; i < players.Count; i++)
+        int count = players.Count;
+        float rowHeight = count <= 1 ? 80f : 40f;
+        float fontSize = count <= 1 ? 50f : 28f;
+
+        RectTransform listRT = playerListParent.GetComponent<RectTransform>();
+        if (listRT != null)
         {
-            string entryText = players[i].name + " racing";
-            SpawnPlayerRow(entryText, i);
+            float totalHeight = Mathf.Max(120f, count * rowHeight + 16f);
+            listRT.sizeDelta = new Vector2(listRT.sizeDelta.x, totalHeight);
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            string entryText = players[i].name;
+            SpawnPlayerRow(entryText, i, rowHeight, fontSize);
         }
     }
 
     private List<PlayerInfo> CollectPlayers()
     {
         List<PlayerInfo> players = new List<PlayerInfo>();
+        HashSet<string> seen = new HashSet<string>();
+
+        if (!PhotonNetwork.InRoom)
+        {
+            string localName = PlayerNameHelper.GetPlayerName();
+            players.Add(new PlayerInfo { name = localName, time = 0f, isLocal = true });
+            seen.Add(localName);
+            return players;
+        }
 
         PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
 
@@ -194,55 +214,36 @@ public class PauseMenu : MonoBehaviour
                 }
             }
             else
-                name = "Player";
-
-            float bestLap = 0f;
-            if (tracker.lapTimes != null && tracker.lapTimes.Count > 0)
             {
-                bestLap = tracker.lapTimes[0];
-                for (int j = 1; j < tracker.lapTimes.Count; j++)
-                {
-                    if (tracker.lapTimes[j] < bestLap)
-                        bestLap = tracker.lapTimes[j];
-                }
+                name = PlayerNameHelper.GetPlayerName();
+                isLocal = true;
             }
-            players.Add(new PlayerInfo { name = name, time = bestLap, isLocal = isLocal });
+
+            if (seen.Contains(name)) continue;
+            seen.Add(name);
+
+            players.Add(new PlayerInfo { name = name, time = 0f, isLocal = isLocal });
         }
 
-        if (PhotonNetwork.InRoom)
+        foreach (Photon.Realtime.Player player in PhotonNetwork.PlayerList)
         {
-            foreach (Photon.Realtime.Player player in PhotonNetwork.PlayerList)
-            {
-                if (player.IsLocal) continue;
+            string pname = string.IsNullOrEmpty(player.NickName)
+                ? "Player " + player.ActorNumber : player.NickName;
 
-                bool found = false;
-                foreach (PlayerInfo p in players)
-                {
-                    string pname = string.IsNullOrEmpty(player.NickName)
-                        ? "Player " + player.ActorNumber : player.NickName;
-                    if (!p.isLocal && p.name == pname)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (found) continue;
+            if (seen.Contains(pname)) continue;
+            seen.Add(pname);
 
-                float time = 0f;
-                if (player.CustomProperties.TryGetValue("FinishTime", out object ft) && ft is float fTime)
-                    time = fTime;
+            float time = 0f;
+            if (player.CustomProperties.TryGetValue("FinishTime", out object ft) && ft is float fTime)
+                time = fTime;
 
-                string name = string.IsNullOrEmpty(player.NickName)
-                    ? "Player " + player.ActorNumber : player.NickName;
-
-                players.Add(new PlayerInfo { name = name, time = time, isLocal = false });
-            }
+            players.Add(new PlayerInfo { name = pname, time = time, isLocal = player.IsLocal });
         }
 
         return players;
     }
 
-    private void SpawnPlayerRow(string text, int rowIndex)
+    private void SpawnPlayerRow(string text, int rowIndex, float rowHeight, float fontSize)
     {
         if (playerRowPrefab != null)
         {
@@ -251,7 +252,19 @@ public class PauseMenu : MonoBehaviour
 
             TextMeshProUGUI tmp = row.GetComponentInChildren<TextMeshProUGUI>();
             if (tmp != null)
-                tmp.text = text;
+            {
+                ApplyPlayerTextStyle(tmp, text, fontSize);
+            }
+
+            RectTransform rowRT = row.GetComponent<RectTransform>();
+            if (rowRT != null)
+            {
+                rowRT.anchorMin = new Vector2(0f, 1f);
+                rowRT.anchorMax = new Vector2(1f, 1f);
+                rowRT.pivot = new Vector2(0.5f, 1f);
+                rowRT.sizeDelta = new Vector2(0f, rowHeight);
+                rowRT.anchoredPosition = new Vector2(0f, -rowIndex * rowHeight);
+            }
 
             spawnedRows.Add(row);
         }
@@ -261,24 +274,38 @@ public class PauseMenu : MonoBehaviour
             go.transform.SetParent(playerListParent, false);
 
             TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text = text;
-            tmp.fontSize = 24;
-            tmp.color = Color.white;
-            tmp.alignment = TextAlignmentOptions.MidlineLeft;
-            tmp.overflowMode = TextOverflowModes.Ellipsis;
-            tmp.textWrappingMode = TextWrappingModes.NoWrap;
+            ApplyPlayerTextStyle(tmp, text, fontSize);
 
             RectTransform rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = new Vector2(0f, 36f);
-            rt.anchoredPosition = new Vector2(0f, -rowIndex * 36f);
+            rt.sizeDelta = new Vector2(0f, rowHeight);
+            rt.anchoredPosition = new Vector2(0f, -rowIndex * rowHeight);
             rt.offsetMin = new Vector2(10f, 0f);
             rt.offsetMax = new Vector2(-10f, 0f);
 
             spawnedRows.Add(go);
         }
+    }
+
+    private void ApplyPlayerTextStyle(TextMeshProUGUI tmp, string text, float fontSize)
+    {
+        tmp.text = text;
+        tmp.fontSize = fontSize;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color = new Color(1f, 0.92f, 0.55f);
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
+
+        tmp.fontMaterial = new Material(tmp.fontMaterial);
+        tmp.fontMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.15f);
+        tmp.fontMaterial.SetColor(ShaderUtilities.ID_OutlineColor, new Color(0f, 0f, 0f, 1f));
+        tmp.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, 2f);
+        tmp.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlayOffsetY, -2f);
+        tmp.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlaySoftness, 0.5f);
+        tmp.fontMaterial.SetColor(ShaderUtilities.ID_UnderlayColor, new Color(0f, 0f, 0f, 0.6f));
     }
 
     private void ClearPlayerRows()

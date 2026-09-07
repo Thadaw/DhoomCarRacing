@@ -48,6 +48,18 @@ public class PhotonCarController : MonoBehaviour
 
     private void Start()
     {
+        if (carRb == null)
+            carRb = GetComponent<Rigidbody>();
+
+        if (carRb == null)
+            carRb = GetComponentInChildren<Rigidbody>();
+
+        if (carRb == null)
+        {
+            Debug.LogError("PhotonCarController: No Rigidbody found on " + gameObject.name);
+            return;
+        }
+
         if (centerOfMass != null)
             carRb.centerOfMass = centerOfMass.localPosition;
 

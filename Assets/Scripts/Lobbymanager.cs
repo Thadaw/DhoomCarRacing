@@ -157,7 +157,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
             if (isHost)
             {
-                int savedIndex = 2;
+                int savedIndex = 0;
                 if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TotalLaps", out object laps))
                     savedIndex = LapCountToIndex((int)laps);
 
@@ -173,7 +173,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
     {
         if (PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue("TotalLaps", out object laps))
             return (int)laps;
-        return 3;
+        return 1;
     }
 
     void OnLapCountChanged(int index)
@@ -195,7 +195,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
             case 1: return 2;
             case 2: return 3;
             case 3: return 5;
-            default: return 3;
+            default: return 1;
         }
     }
 

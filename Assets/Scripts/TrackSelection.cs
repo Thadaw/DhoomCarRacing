@@ -77,7 +77,7 @@ public class TrackSelection : MonoBehaviour
             case 1: return 2;
             case 2: return 3;
             case 3: return 5;
-            default: return 3;
+            default: return 1;
         }
     }
 
