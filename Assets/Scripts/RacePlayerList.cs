@@ -225,7 +225,7 @@ public class RacePlayerList : MonoBehaviour
                 {
                     playerName = pName,
                     currentLap = 0,
-                    totalLaps = 3,
+                    totalLaps = 1,
                     nextCheckpoint = 0,
                     totalCheckpoints = 3,
                     finishTime = fTime,

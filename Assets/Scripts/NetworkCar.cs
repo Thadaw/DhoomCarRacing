@@ -52,11 +52,34 @@ public class NetworkCar : MonoBehaviourPun, IPunObservable
         }
 
         int carId = (int)photonView.InstantiationData[0];
+
+        if (NetworkCarManager.Instance == null)
+        {
+            Debug.LogError("NetworkCar: NetworkCarManager.Instance is null.");
+            return;
+        }
+
         GameObject[] prefabs = NetworkCarManager.Instance.carPrefabs;
+
+        if (prefabs == null || prefabs.Length == 0)
+        {
+            CarSpawner spawner = FindFirstObjectByType<CarSpawner>();
+            if (spawner != null)
+            {
+                prefabs = spawner.GetCarPrefabs();
+                NetworkCarManager.Instance.RegisterCarPrefabs(prefabs);
+            }
+        }
 
         if (prefabs == null || carId < 0 || carId >= prefabs.Length)
         {
-            Debug.LogError("NetworkCar: Invalid carId " + carId);
+            Debug.LogError("NetworkCar: Invalid carId " + carId + " (prefabs=" + (prefabs?.Length ?? 0) + ")");
+            return;
+        }
+
+        if (prefabs[carId] == null)
+        {
+            Debug.LogError("NetworkCar: Prefab at index " + carId + " is null/destroyed.");
             return;
         }
 

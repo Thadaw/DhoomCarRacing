@@ -151,7 +151,7 @@ public class TrackPanelSetup : MonoBehaviour
         listRT.anchorMin = new Vector2(0.5f, 0.5f);
         listRT.anchorMax = new Vector2(0.5f, 0.5f);
         listRT.anchoredPosition = new Vector2(250, 0);
-        listRT.sizeDelta = new Vector2(200, 300);
+        listRT.sizeDelta = new Vector2(250, 120);
 
         pausePanel.SetActive(false);
 

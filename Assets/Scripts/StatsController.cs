@@ -478,7 +478,7 @@ public class StatsController : MonoBehaviour
 
     private void CreateEntry(Transform parent, int position, string playerName, float time, string trackId, bool isCurrentPlayer = false)
     {
-        string prefix = isCurrentPlayer ? "★ " : "";
+        string prefix = isCurrentPlayer ? "[YOU] " : "";
         string posStr = GetPositionStr(position);
         string timeStr = FormatTime(time);
 

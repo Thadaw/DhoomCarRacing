@@ -52,7 +52,7 @@ public class GameSession : MonoBehaviour
     public bool IsGarageViewOnly = false;
 
     [Header("Race Settings")]
-    public int TotalLaps = 3;
+    public int TotalLaps = 1;
 
     private void Awake()
     {

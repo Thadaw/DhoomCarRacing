@@ -81,11 +81,23 @@ public class NetworkCarManager : MonoBehaviour
     public void RegisterCarPrefabs(GameObject[] prefabs)
     {
         if (prefabs == null || prefabs.Length == 0) return;
-        if (carPrefabs == null || carPrefabs.Length == 0)
+
+        bool allSame = carPrefabs != null && carPrefabs.Length == prefabs.Length;
+        if (allSame)
+        {
+            for (int i = 0; i < carPrefabs.Length; i++)
+            {
+                if (carPrefabs[i] != prefabs[i]) { allSame = false; break; }
+            }
+        }
+
+        if (!allSame)
         {
             carPrefabs = prefabs;
-            TrySpawnIfReady();
+            Debug.Log("NetworkCarManager: Car prefabs updated (" + prefabs.Length + " prefabs).");
         }
+
+        TrySpawnIfReady();
     }
 
     private void TrySpawnIfReady()

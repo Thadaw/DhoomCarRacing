@@ -4,7 +4,7 @@ public class CarSound : MonoBehaviour
 {
     private AudioSource startSource;
     private AudioSource runSource;
-    private AudioSource crashSource;
+
     private AudioSource bgmSource;
     private bool raceStarted;
     private bool isLocal;
@@ -26,7 +26,7 @@ public class CarSound : MonoBehaviour
 
         AudioClip startClip = Resources.Load<AudioClip>("Sounds/start acceleration");
         AudioClip runClip = Resources.Load<AudioClip>("Sounds/caracceleration");
-        AudioClip crashClip = Resources.Load<AudioClip>("Sounds/carcrash");
+
         AudioClip bgmClip = Resources.Load<AudioClip>("Sounds/SadenessBGM");
 
         if (startClip != null)
@@ -59,20 +59,6 @@ public class CarSound : MonoBehaviour
             Debug.LogWarning("CarSound: Could not load caracceleration clip");
         }
 
-        if (crashClip != null)
-        {
-            crashSource = gameObject.AddComponent<AudioSource>();
-            crashSource.clip = crashClip;
-            crashSource.loop = false;
-            crashSource.spatialBlend = 0f;
-            crashSource.volume = 1f;
-            Debug.Log("CarSound: Loaded carcrash");
-        }
-        else
-        {
-            Debug.LogWarning("CarSound: Could not load carcrash clip");
-        }
-
         if (bgmClip != null)
         {
             bgmSource = gameObject.AddComponent<AudioSource>();
@@ -103,11 +89,6 @@ public class CarSound : MonoBehaviour
             runSource.volume = 0f;
         }
 
-        if (crashSource != null)
-        {
-            crashSource.Stop();
-            crashSource.volume = 0f;
-        }
 
         if (bgmSource != null)
         {
@@ -178,16 +159,6 @@ public class CarSound : MonoBehaviour
 
         if (collision.gameObject.GetComponent<CarSound>() != null)
             return;
-
-        float impactSpeed = collision.relativeVelocity.magnitude;
-
-        if (impactSpeed > 2f && crashSource != null && !crashSource.isPlaying)
-        {
-            crashSource.volume = Mathf.Clamp01(impactSpeed / 20f);
-            crashSource.pitch = Random.Range(0.9f, 1.1f);
-            crashSource.Play();
-            Debug.Log("CarSound: Hit " + collision.gameObject.name + " at " + impactSpeed.ToString("F1"));
-        }
 
         if (runSource != null && raceStarted)
         {

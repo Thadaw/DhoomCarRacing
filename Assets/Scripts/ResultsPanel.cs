@@ -205,7 +205,7 @@ public class ResultsPanel : MonoBehaviour
         if (playerListParent.GetComponent<Mask>() == null)
             playerListParent.gameObject.AddComponent<Mask>();
 
-        if (playerListParent.GetComponent<Image>() == null)
+        if (playerListParent.GetComponent<Image>() == null && playerListParent.GetComponent<TextMeshProUGUI>() == null)
         {
             Image img = playerListParent.gameObject.AddComponent<Image>();
             if (img != null)
@@ -331,9 +331,9 @@ public class ResultsPanel : MonoBehaviour
     private List<PlayerResult> CollectPlayers()
     {
         List<PlayerResult> players = new List<PlayerResult>();
+        HashSet<string> seen = new HashSet<string>();
 
         PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
-        Debug.Log("CollectPlayers: Found " + trackers.Length + " PlayerLapTracker objects");
 
         foreach (PlayerLapTracker tracker in trackers)
         {
@@ -360,7 +360,8 @@ public class ResultsPanel : MonoBehaviour
                 name = PlayerNameHelper.GetPlayerName();
             }
 
-            Debug.Log("CollectPlayers: tracker=" + tracker.gameObject.name + " name=" + name + " isLocal=" + isLocal + " finishTime=" + tracker.finishTime);
+            if (seen.Contains(name)) continue;
+            seen.Add(name);
 
             float bestLap = 0f;
             if (tracker.lapTimes != null && tracker.lapTimes.Count > 0)
@@ -389,20 +390,11 @@ public class ResultsPanel : MonoBehaviour
         {
             foreach (Photon.Realtime.Player player in PhotonNetwork.PlayerList)
             {
-                if (player.IsLocal) continue;
+                string pname = string.IsNullOrEmpty(player.NickName)
+                    ? "Player " + player.ActorNumber : player.NickName;
 
-                bool found = false;
-                foreach (PlayerResult p in players)
-                {
-                    string pname = string.IsNullOrEmpty(player.NickName)
-                        ? "Player " + player.ActorNumber : player.NickName;
-                    if (!p.isLocal && p.playerName == pname)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (found) continue;
+                if (seen.Contains(pname)) continue;
+                seen.Add(pname);
 
                 float time = 0f;
                 if (player.CustomProperties.TryGetValue("FinishTime", out object ft) && ft is float fTime)
@@ -420,17 +412,14 @@ public class ResultsPanel : MonoBehaviour
                 if (player.CustomProperties.TryGetValue("BestLap", out object bl) && bl is float bestL)
                     bLap = bestL;
 
-                string name = string.IsNullOrEmpty(player.NickName)
-                    ? "Player " + player.ActorNumber : player.NickName;
-
                 players.Add(new PlayerResult
                 {
-                    playerName = name,
+                    playerName = pname,
                     finishTime = time,
                     bestLap = bLap,
                     topSpeed = tSpeed,
                     averageSpeed = aSpeed,
-                    isLocal = false,
+                    isLocal = player.IsLocal,
                     isFinished = time > 0f
                 });
             }

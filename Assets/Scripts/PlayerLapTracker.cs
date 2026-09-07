@@ -9,7 +9,7 @@ public class PlayerLapTracker : MonoBehaviour
     public static System.Action OnLocalPlayerFinished;
 
     [Header("Lap Settings")]
-    public int totalLaps = 3;
+    public int totalLaps = 1;
     public int totalCheckpoints = 3;
 
     [Header("Current Progress")]
@@ -34,11 +34,21 @@ public class PlayerLapTracker : MonoBehaviour
     private float lapStartTime = -1f;
     private PhotonCarController cachedCarController;
 
+    private static System.Collections.Generic.HashSet<PlayerLapTracker> activeTrackers = new System.Collections.Generic.HashSet<PlayerLapTracker>();
+
     private void Start()
     {
+        activeTrackers.Add(this);
+        Debug.Log($"PlayerLapTracker.Start on '{gameObject.name}' (active instances: {activeTrackers.Count})");
+
         AutoDetectCheckpoints();
         ApplyLapSettings();
         UpdateUI();
+    }
+
+    private void OnDestroy()
+    {
+        activeTrackers.Remove(this);
     }
 
     private void AutoDetectCheckpoints()
