@@ -55,7 +55,7 @@ public class ResultsPanel : MonoBehaviour
 
     private void OnRaceFinished()
     {
-        if (!PhotonNetwork.InRoom)
+        if (!PhotonNetwork.InRoom && GameSession.Instance != null && GameSession.Instance.CurrentMode != GameSession.GameMode.AI)
             return;
 
         StartCoroutine(ShowAfterDelay());
@@ -215,8 +215,17 @@ public class ResultsPanel : MonoBehaviour
             }
             else
             {
-                isLocal = true;
-                name = PlayerNameHelper.GetPlayerName();
+                // AI car — use aiName from PlayerLapTracker
+                if (!string.IsNullOrEmpty(tracker.aiName))
+                {
+                    name = tracker.aiName;
+                    isLocal = false;
+                }
+                else
+                {
+                    isLocal = true;
+                    name = PlayerNameHelper.GetPlayerName();
+                }
             }
 
             if (seen.Contains(name)) continue;

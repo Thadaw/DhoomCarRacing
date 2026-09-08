@@ -29,6 +29,8 @@ public class PlayerLapTracker : MonoBehaviour
     public float averageSpeed;
     public List<float> speedSamples = new List<float>();
 
+    [HideInInspector] public string aiName = "";
+
     private bool raceCompleted = false;
     private float raceStartTime = -1f;
     private float lapStartTime = -1f;
@@ -227,7 +229,7 @@ public class PlayerLapTracker : MonoBehaviour
         if (checkpointText != null)
             checkpointText.text = "Race Complete";
 
-        if (isLocal)
+        if (isLocal && string.IsNullOrEmpty(aiName))
         {
             Debug.Log("Firing OnLocalPlayerFinished event.");
             OnLocalPlayerFinished?.Invoke();

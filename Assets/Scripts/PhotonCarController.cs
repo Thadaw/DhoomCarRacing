@@ -7,6 +7,12 @@ public class PhotonCarController : MonoBehaviour
     public PhotonView photonViewRef;
     public bool isLocalPlayerCar = false;
 
+    [Header("External Input (AI)")]
+    public bool useExternalInput = false;
+    private float extThrottle;
+    private float extBrake;
+    private float extSteer;
+
     [Header("Wheel Colliders")]
     public WheelCollider frontLeftWheel;
 
@@ -68,8 +74,11 @@ public class PhotonCarController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Non-local cars should not read input or apply driving forces.
-        if (photonViewRef != null)
+        if (useExternalInput)
+        {
+            // AI car — skip ownership checks, just drive
+        }
+        else if (photonViewRef != null)
         {
             if (!photonViewRef.IsMine)
                 return;
@@ -109,8 +118,22 @@ public class PhotonCarController : MonoBehaviour
         UpdateWheels();
     }
 
+    public void SetInput(float throttle, float brake, float steer)
+    {
+        extThrottle = throttle;
+        extBrake = brake;
+        extSteer = steer;
+    }
+
     private void GetInputs()
     {
+        if (useExternalInput)
+        {
+            throttleInput = extThrottle;
+            steeringInput = extSteer;
+            isBraking = extBrake > 0.5f;
+            return;
+        }
         throttleInput = Input.GetAxis("Vertical");
         steeringInput = Input.GetAxis("Horizontal");
         isBraking = Input.GetKey(KeyCode.Space);

@@ -116,7 +116,81 @@ public class CarSpawner : MonoBehaviour
 
         AssignCameraTarget(spawnedCar);
 
+        // Spawn AI opponents if in AI mode
+        if (GameSession.Instance != null && GameSession.Instance.CurrentMode == GameSession.GameMode.AI)
+        {
+            SpawnAICars();
+        }
+
         return spawnedCar;
+    }
+
+    private void SpawnAICars()
+    {
+        // AI car indices: Car2=1, Car3=2, Car4=4
+        int[] aiIndices = { 1, 2, 4 };
+        string[] aiNames = { "AI Player 1", "AI Player 2", "AI Player 3" };
+
+        // Find race checkpoints to determine spawn positions on the road
+        RaceCheckpoint[] allCheckpoints = FindObjectsByType<RaceCheckpoint>(FindObjectsSortMode.None);
+        System.Array.Sort(allCheckpoints, (a, b) => a.checkpointIndex.CompareTo(b.checkpointIndex));
+
+        // Use the finish line and first checkpoint to determine road direction
+        Vector3 finishPos = Vector3.zero;
+        Vector3 firstCpPos = Vector3.zero;
+        foreach (RaceCheckpoint cp in allCheckpoints)
+        {
+            if (cp.isFinishLine) finishPos = cp.transform.position;
+            if (cp.checkpointIndex == 0) firstCpPos = cp.transform.position;
+        }
+
+        // Road direction from finish toward first checkpoint
+        Vector3 roadDir = (firstCpPos - finishPos).normalized;
+        roadDir.y = 0f;
+
+        // Spawn behind the player car along the road direction
+        Vector3 playerPos = spawnedCar.transform.position;
+        float spacing = 5f;
+
+        for (int i = 0; i < aiIndices.Length; i++)
+        {
+            int prefabIndex = aiIndices[i];
+            if (prefabIndex >= carsPrefabs.Length || carsPrefabs[prefabIndex] == null)
+            {
+                Debug.LogWarning($"CarSpawner: AI car at index {prefabIndex} not found, skipping.");
+                continue;
+            }
+
+            // Spawn behind player, staggered to the side
+            float lateralOffset = (i == 0) ? -3f : (i == 1) ? 3f : 0f;
+            float rearOffset = spacing * (i + 1);
+            Vector3 spawnPos = playerPos - roadDir * rearOffset + transform.right * lateralOffset;
+            spawnPos.y = playerPos.y;
+
+            // Rotate AI car to face road direction
+            Quaternion spawnRot = Quaternion.LookRotation(roadDir, Vector3.up);
+
+            GameObject aiCar = Instantiate(carsPrefabs[prefabIndex], spawnPos, spawnRot);
+            aiCar.name = aiNames[i];
+
+            PhotonCarController aiCC = aiCar.GetComponent<PhotonCarController>();
+            if (aiCC != null)
+            {
+                aiCC.isLocalPlayerCar = false;
+                aiCC.useExternalInput = true;
+                WirePhotonCarReferences(aiCar.transform, aiCC);
+            }
+
+            if (!aiCar.TryGetComponent<PlayerLapTracker>(out _))
+                aiCar.AddComponent<PlayerLapTracker>();
+
+            if (!aiCar.TryGetComponent<CarSound>(out _))
+                aiCar.AddComponent<CarSound>();
+
+            AIDriver aiDriver = aiCar.AddComponent<AIDriver>();
+
+            Debug.Log($"CarSpawner: Spawned {aiNames[i]} at {spawnPos}");
+        }
     }
 
     private void AssignCameraTarget(GameObject car)
