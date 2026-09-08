@@ -558,15 +558,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarSpawner
   carsPrefabs:
-  - {fileID: 7602659696252742409}
+  - {fileID: 3377856452407943159, guid: e2d5c469f17c0bf41b624f84bef6d442, type: 3}
+  - {fileID: 4710922725995689504, guid: b70aa6b92375dd841a8a92290de18e37, type: 3}
   - {fileID: 3459041021941616095, guid: ba52c49a6b2f684448325c06af29eb35, type: 3}
   - {fileID: 2438116886152852505, guid: 01a23458009abe84f9bd5ae5ac8b0df8, type: 3}
   - {fileID: 3349977361369765657, guid: 2db989657e450254d96c6bb383b154db, type: 3}
   - {fileID: 2837969241653789843, guid: 3019cb3a3f6e65f4b85eb0717253e63f, type: 3}
-  - {fileID: 593844108717121537, guid: 2a226e698998ca3448ddde1f72ff4698, type: 3}
-  - {fileID: 1793107613973269433, guid: eede2ded36933764da5b682669fd89e2, type: 3}
-  - {fileID: 1793107613973269433, guid: eede2ded36933764da5b682669fd89e2, type: 3}
-  - {fileID: 1793107613973269433, guid: eede2ded36933764da5b682669fd89e2, type: 3}
+  - {fileID: 4654451844897593184, guid: 63222328d9f542245932e4b29dfa7836, type: 3}
+  - {fileID: 0}
   - {fileID: 1793107613973269433, guid: eede2ded36933764da5b682669fd89e2, type: 3}
 --- !u!1 &114775285
 GameObject:

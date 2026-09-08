@@ -29,7 +29,7 @@ public class TrackPanelSetup : MonoBehaviour
 
     private Canvas FindCanvas()
     {
-        Canvas c = FindObjectOfType<Canvas>();
+        Canvas c = FindFirstObjectByType<Canvas>();
         if (c == null)
         {
             GameObject canvasGO = new GameObject("Canvas");
@@ -58,7 +58,7 @@ public class TrackPanelSetup : MonoBehaviour
 
     private void EnsureManagerScripts()
     {
-        ResultsPanel rp = FindObjectOfType<ResultsPanel>();
+        ResultsPanel rp = FindFirstObjectByType<ResultsPanel>();
         if (rp == null)
         {
             GameObject go = new GameObject("ResultPanalManager");
@@ -66,7 +66,7 @@ public class TrackPanelSetup : MonoBehaviour
         }
         SetupResultsPanelRefs(rp);
 
-        SinglePlayerFinishPanel sp = FindObjectOfType<SinglePlayerFinishPanel>();
+        SinglePlayerFinishPanel sp = FindFirstObjectByType<SinglePlayerFinishPanel>();
         if (sp == null)
         {
             GameObject go = new GameObject("singleplayerresultpanalmanager");
@@ -80,7 +80,7 @@ public class TrackPanelSetup : MonoBehaviour
         Transform spPanelT = FindDeep(FindCanvas().transform, "Single Player Finish Panel");
         if (spPanelT != null) spPanelT.gameObject.SetActive(false);
 
-        PauseMenu pm = FindObjectOfType<PauseMenu>();
+        PauseMenu pm = FindFirstObjectByType<PauseMenu>();
         if (pm == null)
         {
             GameObject go = new GameObject("pausePanalManager");

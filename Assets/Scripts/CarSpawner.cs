@@ -80,12 +80,17 @@ public class CarSpawner : MonoBehaviour
             return null;
         }
 
-        // Destroy previously spawned car (IMPORTANT FIX)
-        if (spawnedCar != null)
+        // Destroy any existing cars in scene (scene-placed or previously spawned)
+        PhotonCarController[] existingCars = FindObjectsByType<PhotonCarController>(FindObjectsSortMode.None);
+        foreach (var existing in existingCars)
         {
-            Destroy(spawnedCar);
-            spawnedCar = null;
+            if (existing.gameObject != gameObject)
+            {
+                Debug.Log("CarSpawner: Destroying scene car " + existing.gameObject.name);
+                Destroy(existing.gameObject);
+            }
         }
+        spawnedCar = null;
 
         spawnedCar = Instantiate(
             selectedPrefab,
@@ -96,7 +101,10 @@ public class CarSpawner : MonoBehaviour
         // In single player, mark this car as the local player's car
         PhotonCarController cc = spawnedCar.GetComponent<PhotonCarController>();
         if (cc != null)
+        {
             cc.isLocalPlayerCar = true;
+            WirePhotonCarReferences(spawnedCar.transform, cc);
+        }
 
         // Add lap tracker for results UI (normally added by NetworkCar in multiplayer)
         if (!spawnedCar.TryGetComponent<PlayerLapTracker>(out _))
@@ -130,5 +138,74 @@ public class CarSpawner : MonoBehaviour
         }
 
         Debug.LogWarning("No camera follow script found.");
+    }
+
+    private void WirePhotonCarReferences(Transform root, PhotonCarController cc)
+    {
+        // Fix carRb
+        if (cc.carRb == null)
+            cc.carRb = root.GetComponent<Rigidbody>();
+
+        // Fix centerOfMass
+        if (cc.centerOfMass == null)
+        {
+            Transform com = root.Find("CarCenterOfMass");
+            if (com == null) com = root.Find("CenterOfMass");
+            cc.centerOfMass = com;
+        }
+
+        // Find all WheelColliders in children
+        WheelCollider[] allWheels = root.GetComponentsInChildren<WheelCollider>();
+        if (allWheels.Length < 4)
+        {
+            Debug.LogWarning("CarSpawner: " + root.name + " has only " + allWheels.Length + " WheelColliders, need 4");
+            return;
+        }
+
+        // Sort wheels: front-left, front-right, rear-left, rear-right based on Z position
+        // Front wheels have higher Z (forward), rear wheels have lower Z
+        System.Array.Sort(allWheels, (a, b) =>
+        {
+            bool aFront = a.transform.localPosition.z > 0;
+            bool bFront = b.transform.localPosition.z > 0;
+            if (aFront != bFront) return aFront ? -1 : 1;
+            return a.transform.localPosition.x.CompareTo(b.transform.localPosition.x);
+        });
+
+        // Wire wheel colliders (only if null)
+        if (cc.frontLeftWheel == null) cc.frontLeftWheel = allWheels[0];
+        if (cc.frontRightWheel == null) cc.frontRightWheel = allWheels[1];
+        if (cc.rearLeftWheel == null) cc.rearLeftWheel = allWheels[2];
+        if (cc.rearRightWheel == null) cc.rearRightWheel = allWheels[3];
+
+        // Find wheel mesh transforms by name
+        Transform frontLeftMesh = FindWheelMesh(root, "Wheel_L");
+        Transform frontRightMesh = FindWheelMesh(root, "Wheel_R");
+        Transform rearLeftMesh = FindWheelMesh(root, "Wheel_Back_L");
+        Transform rearRightMesh = FindWheelMesh(root, "Wheel_Back_R");
+
+        // Wire wheel transforms (only if null)
+        if (cc.frontLeftTransform == null) cc.frontLeftTransform = frontLeftMesh;
+        if (cc.frontRightTransform == null) cc.frontRightTransform = frontRightMesh;
+        if (cc.rearLeftTransform == null) cc.rearLeftTransform = rearLeftMesh;
+        if (cc.rearRightTransform == null) cc.rearRightTransform = rearRightMesh;
+
+        Debug.Log("CarSpawner: Wired " + root.name + " - wheels: " +
+            (cc.frontLeftWheel != null) + ", " +
+            (cc.frontRightWheel != null) + ", " +
+            (cc.rearLeftWheel != null) + ", " +
+            (cc.rearRightWheel != null));
+    }
+
+    private Transform FindWheelMesh(Transform root, string name)
+    {
+        Transform t = root.Find(name);
+        if (t != null) return t;
+        // Fallback: search all children
+        foreach (Transform child in root.GetComponentsInChildren<Transform>())
+        {
+            if (child.name == name) return child;
+        }
+        return null;
     }
 }

@@ -663,6 +663,37 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &2373546003353501773
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2534122573049139241}
+  m_Layer: 0
+  m_Name: CarCenterOfMass
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2534122573049139241
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2373546003353501773}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3281239385603889870}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3707323049609216548
 GameObject:
   m_ObjectHideFlags: 0
@@ -856,7 +887,7 @@ GameObject:
   - component: {fileID: 414422916892228905}
   - component: {fileID: 6652908172726816221}
   - component: {fileID: 139705843089321371}
-  - component: {fileID: 2123430643547575485}
+  - component: {fileID: 7097422228768456434}
   m_Layer: 0
   m_Name: Car7
   m_TagString: Untagged
@@ -890,6 +921,8 @@ Transform:
   - {fileID: 3674187637254726540}
   - {fileID: 3919901013724502893}
   - {fileID: 650865254716871753}
+  - {fileID: 2534122573049139241}
+  - {fileID: 6008399962896115827}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &5764015247257687032
@@ -942,7 +975,7 @@ MonoBehaviour:
   rearLeftTransform: {fileID: 1652623817419441508}
   rearRightTransform: {fileID: 9202168761019432856}
   carRb: {fileID: 5764015247257687032}
-  centerOfMass: {fileID: 0}
+  centerOfMass: {fileID: 2534122573049139241}
   motorForce: 3500
   maxSpeed: 220
   maxSteerAngle: 32
@@ -987,7 +1020,12 @@ MonoBehaviour:
   nextCheckpointIndex: 0
   lapText: {fileID: 0}
   checkpointText: {fileID: 0}
---- !u!65 &2123430643547575485
+  finishTime: 0
+  lapTimes: []
+  topSpeed: 0
+  averageSpeed: 0
+  speedSamples: []
+--- !u!65 &7097422228768456434
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1002,7 +1040,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -1109,6 +1147,7 @@ GameObject:
   - component: {fileID: 6103467732734683473}
   - component: {fileID: 1076973544475169677}
   - component: {fileID: 6801983296299031114}
+  - component: {fileID: 4794643254530421944}
   m_Layer: 0
   m_Name: Body_47
   m_TagString: Untagged
@@ -1188,6 +1227,27 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!65 &4794643254530421944
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4966733025401122246}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.935035, y: 1.247256, z: 4.4121027}
+  m_Center: {x: -0.00000453, y: 0.6676689, z: 0.04943037}
 --- !u!1 &5343588210325712574
 GameObject:
   m_ObjectHideFlags: 0
@@ -1439,6 +1499,37 @@ WheelCollider:
   m_LayerOverridePriority: 0
   m_Enabled: 1
   m_ProvidesContacts: 0
+--- !u!1 &7173349965659001501
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6008399962896115827}
+  m_Layer: 0
+  m_Name: CameraPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6008399962896115827
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7173349965659001501}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.7, z: -5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3281239385603889870}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7217124144693264662
 GameObject:
   m_ObjectHideFlags: 0

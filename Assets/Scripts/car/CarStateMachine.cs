@@ -72,22 +72,31 @@ public class CarStateMachine : MonoBehaviour {
         splineContainer = GameObject.FindWithTag("track")?.GetComponent<SplineContainer>();
 
         rigidbody = GetComponent<Rigidbody>();
-        var com = transform.Find("CenterOfMass");
-        centerOfMassTransform = com != null ? com : transform;
-        foreach (Transform i in gameObject.transform) {
-            if (i.transform.name == "carColliders") {
-                wheelColliders = new WheelCollider[i.transform.childCount];
-                for (int q = 0; q < i.transform.childCount; q++) {
-                    wheelColliders[q] = i.transform.GetChild(q).GetComponent<WheelCollider>();
-                }
-            }
-            if (i.transform.name == "carWheels") {
-                wheelTransforms = new Transform[i.transform.childCount];
-                for (int q = 0; q < i.transform.childCount; q++) {
-                    wheelTransforms[q] = i.transform.GetChild(q);
-                }
+
+        // Find center of mass by name variants
+        centerOfMassTransform = transform.Find("CarCenterOfMass");
+        if (centerOfMassTransform == null) centerOfMassTransform = transform.Find("CenterOfMass");
+
+        // Find wheel colliders from any child that contains WheelCollider components
+        var allColliders = new List<WheelCollider>();
+        foreach (Transform child in transform) {
+            var wc = child.GetComponent<WheelCollider>();
+            if (wc != null) allColliders.Add(wc);
+            foreach (Transform grandchild in child) {
+                wc = grandchild.GetComponent<WheelCollider>();
+                if (wc != null) allColliders.Add(wc);
             }
         }
+        wheelColliders = allColliders.ToArray();
+
+        // Find wheel transforms - look for children named Wheel_L, Wheel_R, etc.
+        var wheelTransformList = new List<Transform>();
+        foreach (Transform child in transform) {
+            if (child.name.Contains("Wheel") && child.GetComponent<MeshRenderer>() != null) {
+                wheelTransformList.Add(child);
+            }
+        }
+        wheelTransforms = wheelTransformList.ToArray();
 
         // initial values 
         if (centerOfMassTransform) {
