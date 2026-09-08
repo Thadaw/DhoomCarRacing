@@ -64,7 +64,7 @@ public class TrackPanelSetup : MonoBehaviour
             GameObject go = new GameObject("ResultPanalManager");
             rp = go.AddComponent<ResultsPanel>();
         }
-        rp.RefreshUI();
+        SetupResultsPanelRefs(rp);
 
         SinglePlayerFinishPanel sp = FindObjectOfType<SinglePlayerFinishPanel>();
         if (sp == null)
@@ -72,7 +72,13 @@ public class TrackPanelSetup : MonoBehaviour
             GameObject go = new GameObject("singleplayerresultpanalmanager");
             sp = go.AddComponent<SinglePlayerFinishPanel>();
         }
-        sp.RefreshUI();
+        SetupSinglePlayerPanelRefs(sp);
+
+        Transform resultPanelT = FindDeep(FindCanvas().transform, "resultpanal");
+        if (resultPanelT != null) resultPanelT.gameObject.SetActive(false);
+
+        Transform spPanelT = FindDeep(FindCanvas().transform, "Single Player Finish Panel");
+        if (spPanelT != null) spPanelT.gameObject.SetActive(false);
 
         PauseMenu pm = FindObjectOfType<PauseMenu>();
         if (pm == null)
@@ -81,6 +87,60 @@ public class TrackPanelSetup : MonoBehaviour
             pm = go.AddComponent<PauseMenu>();
         }
         pm.RefreshUI();
+    }
+
+    private void SetupSinglePlayerPanelRefs(SinglePlayerFinishPanel sp)
+    {
+        Transform panelT = FindDeep(FindCanvas().transform, "Single Player Finish Panel");
+        if (panelT == null) return;
+
+        GameObject panel = panelT.gameObject;
+        TextMeshProUGUI posText = FindDeep(panelT, "SPPosition")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI nameText = FindDeep(panelT, "SPPlayerName")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI timeText = FindDeep(panelT, "SPFinishTime")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI lapText = FindDeep(panelT, "SPBestLap")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI speedText = FindDeep(panelT, "SPTopSpeed")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI avgSpeedText = FindDeep(panelT, "SPAverageSpeed")?.GetComponent<TextMeshProUGUI>();
+        Button garage = FindDeep(panelT, "garage")?.GetComponent<Button>();
+        Button mainMenu = FindDeep(panelT, "mainmenu")?.GetComponent<Button>();
+        Button profile = FindDeep(panelT, "profile")?.GetComponent<Button>();
+
+        sp.SetupRefs(panel, posText, nameText, timeText, lapText, speedText, avgSpeedText, garage, mainMenu, profile);
+    }
+
+    private Transform FindDeep(Transform parent, string name)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == name)
+                return child;
+            Transform found = FindDeep(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
+    private void SetupResultsPanelRefs(ResultsPanel rp)
+    {
+        Transform panelT = FindDeep(FindCanvas().transform, "resultpanal");
+        if (panelT == null) return;
+
+        GameObject panel = panelT.gameObject;
+        Transform playerListT = FindDeep(panelT, "playerlist");
+        GameObject rowPrefab = FindDeep(panelT, "playerrow 1")?.gameObject;
+        if (rowPrefab != null) rowPrefab.SetActive(false);
+
+        TextMeshProUGUI posText = FindDeep(panelT, "position")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI timeText = FindDeep(panelT, "finishtime")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI lapText = FindDeep(panelT, "bestlap")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI topSpeedText = FindDeep(panelT, "top speed")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI avgSpeedText = FindDeep(panelT, "avarage speed")?.GetComponent<TextMeshProUGUI>();
+        Button garage = FindDeep(panelT, "garage")?.GetComponent<Button>();
+        Button mainMenu = FindDeep(panelT, "mainmenu")?.GetComponent<Button>();
+        Button profile = FindDeep(panelT, "profile")?.GetComponent<Button>();
+
+        rp.SetupRefs(panel, playerListT, rowPrefab, posText, timeText, lapText, topSpeedText, avgSpeedText, garage, mainMenu, profile);
     }
 
     private void SetupResultPanel(Canvas canvas)
@@ -104,7 +164,7 @@ public class TrackPanelSetup : MonoBehaviour
         listRT.anchoredPosition = new Vector2(200, 0);
         listRT.sizeDelta = new Vector2(300, 400);
 
-        GameObject playerRow = CreatePlayerRow(listGO.transform);
+        CreatePlayerRow(listGO.transform);
 
         CreateButton(panel.transform, "garage", "Garage", new Vector2(-100, -300));
         CreateButton(panel.transform, "mainmenu", "Main Menu", new Vector2(100, -300));
@@ -118,20 +178,84 @@ public class TrackPanelSetup : MonoBehaviour
         if (GameObject.Find("Single Player Finish Panel") != null) return;
 
         GameObject panel = CreateUIPanel("Single Player Finish Panel", canvas.transform);
-        AddImage(panel, new Color(0.2f, 0.2f, 0.2f, 0.85f));
+        RectTransform panelRT = panel.GetComponent<RectTransform>();
+        panelRT.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRT.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRT.anchoredPosition = Vector2.zero;
+        panelRT.sizeDelta = new Vector2(600, 500);
+        AddImage(panel, new Color(0.05f, 0.05f, 0.1f, 0.95f));
 
-        CreateText(panel.transform, "SPPosition", "Position: ", new Vector2(20, -30), new Vector2(300, 40));
-        CreateText(panel.transform, "SPPlayerName", "Player: ", new Vector2(20, -80), new Vector2(300, 40));
-        CreateText(panel.transform, "SPFinishTime", "Time: ", new Vector2(20, -130), new Vector2(300, 40));
-        CreateText(panel.transform, "SPBestLap", "Best Lap: ", new Vector2(20, -180), new Vector2(300, 40));
-        CreateText(panel.transform, "SPTopSpeed", "Top Speed: ", new Vector2(20, -230), new Vector2(300, 40));
-        CreateText(panel.transform, "SPAverageSpeed", "Avg Speed: ", new Vector2(20, -280), new Vector2(300, 40));
+        VerticalLayoutGroup vlg = panel.AddComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.UpperCenter;
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+        vlg.spacing = 8;
+        vlg.padding = new RectOffset(30, 30, 20, 20);
 
-        CreateButton(panel.transform, "garage", "Garage", new Vector2(-100, -340));
-        CreateButton(panel.transform, "mainmenu", "Main Menu", new Vector2(100, -340));
-        CreateButton(panel.transform, "profile", "Profile", new Vector2(0, -340));
+        CreateStatRow(panel.transform, "SPPosition", "POSITION", "#1", 36, new Color(1f, 0.8f, 0f));
+        CreateStatRow(panel.transform, "SPPlayerName", "RACER", "", 28, Color.white);
+        CreateStatRow(panel.transform, "SPFinishTime", "TIME", "", 28, new Color(0f, 0.9f, 1f));
+        CreateStatRow(panel.transform, "SPBestLap", "BEST LAP", "", 28, new Color(0f, 1f, 0.4f));
+        CreateStatRow(panel.transform, "SPTopSpeed", "TOP SPEED", "", 28, new Color(1f, 0.4f, 0f));
+        CreateStatRow(panel.transform, "SPAverageSpeed", "AVG SPEED", "", 28, new Color(1f, 0.6f, 0.2f));
+
+        GameObject buttonRow = new GameObject("ButtonRow", typeof(RectTransform));
+        HorizontalLayoutGroup hlg = buttonRow.AddComponent<HorizontalLayoutGroup>();
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childControlWidth = true;
+        hlg.childControlHeight = true;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = true;
+        hlg.spacing = 15;
+        LayoutElement brLE = buttonRow.AddComponent<LayoutElement>();
+        brLE.preferredHeight = 50;
+        brLE.minHeight = 50;
+        buttonRow.transform.SetParent(panel.transform, false);
+
+        CreateButton(buttonRow.transform, "garage", "GARAGE", Vector2.zero);
+        CreateButton(buttonRow.transform, "mainmenu", "MAIN MENU", Vector2.zero);
+        CreateButton(buttonRow.transform, "profile", "PROFILE", Vector2.zero);
 
         panel.SetActive(false);
+    }
+
+    private void CreateStatRow(Transform parent, string name, string title, string value, int fontSize, Color color)
+    {
+        GameObject row = new GameObject(name + "_row", typeof(RectTransform));
+        HorizontalLayoutGroup rowHlg = row.AddComponent<HorizontalLayoutGroup>();
+        rowHlg.childAlignment = TextAnchor.MiddleLeft;
+        rowHlg.childControlWidth = true;
+        rowHlg.childControlHeight = true;
+        rowHlg.childForceExpandWidth = true;
+        rowHlg.childForceExpandHeight = true;
+        rowHlg.spacing = 10;
+        LayoutElement rowLE = row.AddComponent<LayoutElement>();
+        rowLE.preferredHeight = fontSize + 14;
+        rowLE.minHeight = fontSize + 10;
+        row.transform.SetParent(parent, false);
+
+        GameObject titleGO = new GameObject(name + "_title", typeof(RectTransform));
+        titleGO.transform.SetParent(row.transform, false);
+        TextMeshProUGUI titleTmp = titleGO.AddComponent<TextMeshProUGUI>();
+        titleTmp.text = title;
+        titleTmp.fontSize = fontSize;
+        titleTmp.color = new Color(color.r, color.g, color.b, 0.6f);
+        titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        LayoutElement titleLE = titleGO.AddComponent<LayoutElement>();
+        titleLE.preferredWidth = 180;
+        titleLE.minWidth = 140;
+
+        GameObject valueGO = new GameObject(name, typeof(RectTransform));
+        valueGO.transform.SetParent(row.transform, false);
+        TextMeshProUGUI valueTmp = valueGO.AddComponent<TextMeshProUGUI>();
+        valueTmp.text = value;
+        valueTmp.fontSize = fontSize;
+        valueTmp.color = color;
+        valueTmp.alignment = TextAlignmentOptions.MidlineRight;
+        LayoutElement valueLE = valueGO.AddComponent<LayoutElement>();
+        valueLE.flexibleWidth = 1;
     }
 
     private void SetupPauseMenu(Canvas canvas)
@@ -189,7 +313,7 @@ public class TrackPanelSetup : MonoBehaviour
         img.color = color;
     }
 
-    private void CreateText(Transform parent, string name, string text, Vector2 pos, Vector2 size)
+    private void CreateText(Transform parent, string name, string text, Vector2 pos, Vector2 size, int fontSize = 24, Color? color = null)
     {
         GameObject go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         RectTransform rt = go.GetComponent<RectTransform>();
@@ -201,8 +325,8 @@ public class TrackPanelSetup : MonoBehaviour
 
         TextMeshProUGUI tmp = go.GetComponent<TextMeshProUGUI>();
         tmp.text = text;
-        tmp.fontSize = 24;
-        tmp.color = Color.white;
+        tmp.fontSize = fontSize;
+        tmp.color = color ?? Color.white;
         tmp.alignment = TextAlignmentOptions.Left;
     }
 

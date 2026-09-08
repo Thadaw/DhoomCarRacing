@@ -8,24 +8,37 @@ using System.Collections.Generic;
 
 public class SinglePlayerFinishPanel : MonoBehaviour
 {
-    [Header("Panel")]
-    [SerializeField] private GameObject finishPanel;
+    private GameObject finishPanel;
+    private TextMeshProUGUI positionText;
+    private TextMeshProUGUI playerNameText;
+    private TextMeshProUGUI finishTimeText;
+    private TextMeshProUGUI bestLapText;
+    private TextMeshProUGUI topSpeedText;
+    private TextMeshProUGUI averageSpeedText;
+    private Button garageButton;
+    private Button mainMenuButton;
+    private Button profileButton;
 
-    [Header("Stats")]
-    [SerializeField] private TextMeshProUGUI positionText;
-    [SerializeField] private TextMeshProUGUI playerNameText;
-    [SerializeField] private TextMeshProUGUI finishTimeText;
-    [SerializeField] private TextMeshProUGUI bestLapText;
-    [SerializeField] private TextMeshProUGUI topSpeedText;
-    [SerializeField] private TextMeshProUGUI averageSpeedText;
+    private float showDelay = 2f;
 
-    [Header("Buttons")]
-    [SerializeField] private Button garageButton;
-    [SerializeField] private Button mainMenuButton;
-    [SerializeField] private Button profileButton;
+    public void SetupRefs(GameObject panel, TextMeshProUGUI posText, TextMeshProUGUI nameText, TextMeshProUGUI timeText, TextMeshProUGUI lapText, TextMeshProUGUI speedText, TextMeshProUGUI avgSpeedText, Button garage, Button mainMenu, Button profile)
+    {
+        finishPanel = panel;
+        positionText = posText;
+        playerNameText = nameText;
+        finishTimeText = timeText;
+        bestLapText = lapText;
+        topSpeedText = speedText;
+        averageSpeedText = avgSpeedText;
+        garageButton = garage;
+        mainMenuButton = mainMenu;
+        profileButton = profile;
 
-    [Header("Timing")]
-    [SerializeField] private float showDelay = 2f;
+        if (finishPanel != null)
+            finishPanel.SetActive(false);
+
+        Debug.Log("SinglePlayer SetupRefs: panel=" + (finishPanel != null) + " pos=" + (positionText != null) + " name=" + (playerNameText != null) + " time=" + (finishTimeText != null) + " lap=" + (bestLapText != null) + " speed=" + (topSpeedText != null) + " avg=" + (averageSpeedText != null));
+    }
 
     private void OnEnable()
     {
@@ -35,92 +48,6 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     private void OnDisable()
     {
         PlayerLapTracker.OnLocalPlayerFinished -= OnRaceFinished;
-    }
-
-    private void Start()
-    {
-        if (finishPanel != null)
-            finishPanel.SetActive(false);
-
-        TryFindUI();
-    }
-
-    public void RefreshUI()
-    {
-        TryFindUI();
-    }
-
-    private void TryFindUI()
-    {
-        if (finishPanel == null)
-        {
-            var go = GameObject.Find("Single Player Finish Panel");
-            if (go != null) finishPanel = go;
-        }
-        if (positionText == null)
-        {
-            var go = GameObject.Find("SPPosition");
-            if (go != null) positionText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (playerNameText == null)
-        {
-            var go = GameObject.Find("SPPlayerName");
-            if (go != null) playerNameText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (finishTimeText == null)
-        {
-            var go = GameObject.Find("SPFinishTime");
-            if (go != null) finishTimeText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (bestLapText == null)
-        {
-            var go = GameObject.Find("SPBestLap");
-            if (go != null) bestLapText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (topSpeedText == null)
-        {
-            var go = GameObject.Find("SPTopSpeed");
-            if (go == null) go = GameObject.Find(" SPTopSpeed");
-            if (go != null) topSpeedText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (averageSpeedText == null)
-        {
-            var go = GameObject.Find("SPAverageSpeed");
-            if (go != null) averageSpeedText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (garageButton == null)
-        {
-            var go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "garage");
-            if (go == null) go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "GarageButton");
-            if (go != null)
-            {
-                garageButton = go.GetComponent<Button>();
-                if (garageButton == null)
-                    garageButton = go.GetComponentInParent<Button>();
-            }
-        }
-        if (mainMenuButton == null)
-        {
-            var go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "mainmenu");
-            if (go == null) go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "MainMenuButton");
-            if (go != null)
-            {
-                mainMenuButton = go.GetComponent<Button>();
-                if (mainMenuButton == null)
-                    mainMenuButton = go.GetComponentInParent<Button>();
-            }
-        }
-        if (profileButton == null)
-        {
-            var go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "profile");
-            if (go == null) go = FindChildByName(finishPanel != null ? finishPanel.transform : transform, "ProfileButton");
-            if (go != null)
-            {
-                profileButton = go.GetComponent<Button>();
-                if (profileButton == null)
-                    profileButton = go.GetComponentInParent<Button>();
-            }
-        }
     }
 
     private void PlayClickSound()
@@ -146,7 +73,6 @@ public class SinglePlayerFinishPanel : MonoBehaviour
             profileButton.onClick.RemoveAllListeners();
             profileButton.onClick.AddListener(() => { PlayClickSound(); GoToProfile(); });
         }
-        Debug.Log("SinglePlayer BindButtons: garage=" + (garageButton != null) + " mainmenu=" + (mainMenuButton != null) + " profile=" + (profileButton != null));
     }
 
     private void OnRaceFinished()
@@ -167,12 +93,10 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     {
         PlayerLapTracker tracker = FindLocalTracker();
         if (tracker == null) return;
+        if (finishPanel == null) return;
 
-        TryFindUI();
+        finishPanel.SetActive(true);
         BindButtons();
-
-        if (finishPanel != null)
-            finishPanel.SetActive(true);
 
         string playerName = PlayerNameHelper.GetPlayerName();
 
@@ -188,42 +112,56 @@ public class SinglePlayerFinishPanel : MonoBehaviour
         }
 
         if (positionText != null)
-            positionText.text = "1";
+        {
+            positionText.text = "POSITION: #1";
+            positionText.fontSize = 36;
+            positionText.color = new Color(1f, 0.8f, 0f);
+        }
         if (playerNameText != null)
-            playerNameText.text = playerName;
+        {
+            playerNameText.text = "RACER: " + playerName;
+            playerNameText.fontSize = 28;
+            playerNameText.color = Color.white;
+        }
         if (finishTimeText != null)
-            finishTimeText.text = tracker.finishTime > 0f ? FormatTime(tracker.finishTime) : "DNF";
+        {
+            finishTimeText.text = "TIME: " + (tracker.finishTime > 0f ? FormatTime(tracker.finishTime) : "DNF");
+            finishTimeText.fontSize = 28;
+            finishTimeText.color = new Color(0f, 0.9f, 1f);
+        }
         if (bestLapText != null)
-            bestLapText.text = bestLap > 0f ? FormatTime(bestLap) : "--";
+        {
+            bestLapText.text = "BEST LAP: " + (bestLap > 0f ? FormatTime(bestLap) : "--");
+            bestLapText.fontSize = 28;
+            bestLapText.color = new Color(0f, 1f, 0.4f);
+        }
         if (topSpeedText != null)
-            topSpeedText.text = tracker.topSpeed > 0f ? tracker.topSpeed.ToString("0") + " KM/H" : "--";
+        {
+            topSpeedText.text = "TOP SPEED: " + (tracker.topSpeed > 0f ? tracker.topSpeed.ToString("0") + " KM/H" : "--");
+            topSpeedText.fontSize = 28;
+            topSpeedText.color = new Color(1f, 0.4f, 0f);
+        }
         if (averageSpeedText != null)
-            averageSpeedText.text = tracker.averageSpeed > 0f ? tracker.averageSpeed.ToString("0") + " KM/H" : "--";
+        {
+            averageSpeedText.text = "AVG SPEED: " + (tracker.averageSpeed > 0f ? tracker.averageSpeed.ToString("0") + " KM/H" : "--");
+            averageSpeedText.fontSize = 28;
+            averageSpeedText.color = new Color(1f, 0.6f, 0.2f);
+        }
     }
 
     private PlayerLapTracker FindLocalTracker()
     {
         PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
+        PlayerLapTracker fallback = null;
         foreach (PlayerLapTracker t in trackers)
         {
             PhotonView pv = t.GetComponentInParent<PhotonView>();
-            if (pv == null)
+            if (pv != null && pv.IsMine)
                 return t;
+            if (pv == null && fallback == null)
+                fallback = t;
         }
-        return null;
-    }
-
-    private Transform FindChildByName(Transform parent, string name)
-    {
-        foreach (Transform child in parent)
-        {
-            if (child.name == name)
-                return child;
-            Transform found = FindChildByName(child, name);
-            if (found != null)
-                return found;
-        }
-        return null;
+        return fallback;
     }
 
     private string FormatTime(float time)
