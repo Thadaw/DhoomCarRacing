@@ -16,11 +16,14 @@ public class MainMenuController : MonoBehaviour
     private Button googleSignInBtn;
     private Button multiplayerBtn;
     private TMP_Text playerNameText;
+    private SettingsManager settingsManager;
 
     private void Start()
     {
         FirebaseManager.EnsureExists();
         LeaderboardManager.EnsureExists();
+
+        mainCanvas = FindFirstObjectByType<Canvas>();
 
         GameObject pnObj = GameObject.Find("playername");
         if (pnObj != null)
@@ -42,9 +45,33 @@ public class MainMenuController : MonoBehaviour
                 btn.onClick.AddListener(() => { PlayClickSound(); OnGaragePressed(); });
         }
 
+        GameObject settingBtn = GameObject.Find("setting");
+        if (settingBtn != null)
+        {
+            Button btn = settingBtn.GetComponent<Button>();
+            if (btn != null)
+                btn.onClick.AddListener(() => { PlayClickSound(); OnSettingsPressed(); });
+        }
+
+        GameObject aiBtn = GameObject.Find("aioponents");
+        if (aiBtn != null)
+        {
+            Button btn = aiBtn.GetComponent<Button>();
+            if (btn != null)
+                btn.onClick.AddListener(() => { PlayClickSound(); OnAIPressed(); });
+        }
+
         GameObject mpBtn = GameObject.Find("Multiplayer");
         if (mpBtn != null)
             multiplayerBtn = mpBtn.GetComponent<Button>();
+
+        // Create settings manager
+        if (mainCanvas != null)
+        {
+            GameObject smGO = new GameObject("SettingsManager");
+            settingsManager = smGO.AddComponent<SettingsManager>();
+            settingsManager.Init(mainCanvas);
+        }
 
         BuildGoogleSignInUI();
     }
@@ -111,6 +138,15 @@ public class MainMenuController : MonoBehaviour
         sceneSwitcher.SceneLoder(GarageSceneName);
     }
 
+    public void OnAIPressed()
+    {
+        PlayClickSound();
+        GameSession.Instance.IsSelectingFromLobby = false;
+        GameSession.Instance.IsGarageViewOnly = false;
+        GameSession.Instance.CurrentMode = GameSession.GameMode.AI;
+        sceneSwitcher.SceneLoder(GarageSceneName);
+    }
+
     public void OnMultiplayerPressed()
     {
         PlayClickSound();
@@ -130,6 +166,12 @@ public class MainMenuController : MonoBehaviour
         PlayClickSound();
         GameSession.Instance.IsGarageViewOnly = true;
         sceneSwitcher.SceneLoder(GarageSceneName);
+    }
+
+    public void OnSettingsPressed()
+    {
+        if (settingsManager != null)
+            settingsManager.Show();
     }
 
     public void OnQuitPressed()
