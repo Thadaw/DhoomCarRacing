@@ -29,7 +29,7 @@ public class GameSession : MonoBehaviour
         }
     }
 
-    public enum GameMode { None, SinglePlayer, MultiplayerHost, MultiplayerJoin }
+    public enum GameMode { None, SinglePlayer, AI, MultiplayerHost, MultiplayerJoin }
 
     [Header("Set by MainMenu buttons")]
     public GameMode CurrentMode = GameMode.None;

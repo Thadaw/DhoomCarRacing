@@ -448,7 +448,7 @@ public class StatsController : MonoBehaviour
 
             string footerText;
             if (myPosition > 0)
-                footerText = $"Your Position: {GetPositionStr(myPosition)} | Best Time: {FormatTime(myBestTime)}";
+                footerText = $"Your Position: {GetPositionStr(myPosition)} | Best Time: {FormatTime(myBestTime)} ({GetGameModeString()})";
             else
                 footerText = !string.IsNullOrEmpty(trackId) ? $"Track: {trackId}" : "All Tracks";
 
@@ -565,6 +565,18 @@ public class StatsController : MonoBehaviour
         int minutes = Mathf.FloorToInt(time / 60f);
         float seconds = time % 60f;
         return $"{minutes}:{seconds:00.00}";
+    }
+
+    private string GetGameModeString()
+    {
+        if (GameSession.Instance == null) return "Single Player";
+        return GameSession.Instance.CurrentMode switch
+        {
+            GameSession.GameMode.AI => "AI Opponent",
+            GameSession.GameMode.MultiplayerHost => "Multiplayer",
+            GameSession.GameMode.MultiplayerJoin => "Multiplayer",
+            _ => "Single Player"
+        };
     }
 
     private void CreateFooterText(Transform parent, string text)

@@ -133,8 +133,17 @@ public class CarSelection : MonoBehaviour
         }
         else
         {
-            Debug.Log("Routing to TrackSelection.");
-            SceneManager.LoadScene(trackSelectSceneName);
+            if (GameSession.Instance != null && GameSession.Instance.CurrentMode == GameSession.GameMode.AI)
+            {
+                Debug.Log("AI Mode: Loading Track3 directly.");
+                GameSession.Instance.SelectedTrackId = "Track3";
+                SceneManager.LoadScene("Track3");
+            }
+            else
+            {
+                Debug.Log("Routing to TrackSelection.");
+                SceneManager.LoadScene(trackSelectSceneName);
+            }
         }
     }
 
