@@ -8,29 +8,40 @@ using System.Collections.Generic;
 
 public class ResultsPanel : MonoBehaviour
 {
-    [Header("Panel")]
-    [SerializeField] private GameObject resultsPanel;
-
-    [Header("Leaderboard (Left Side)")]
-    [SerializeField] private Transform playerListParent;
-    [SerializeField] private GameObject playerRowPrefab;
-
-    [Header("Performance (Right Side)")]
-    [SerializeField] private TextMeshProUGUI positionText;
-    [SerializeField] private TextMeshProUGUI finishTimeText;
-    [SerializeField] private TextMeshProUGUI bestLapText;
-    [SerializeField] private TextMeshProUGUI topSpeedText;
-    [SerializeField] private TextMeshProUGUI averageSpeedText;
-
-    [Header("Buttons")]
-    [SerializeField] private Button garageButton;
-    [SerializeField] private Button mainMenuButton;
-    [SerializeField] private Button profileButton;
-
-    [Header("Timing")]
-    [SerializeField] private float showDelay = 2f;
-
+    private GameObject resultsPanel;
+    private Transform playerListParent;
+    private GameObject playerRowPrefab;
+    private TextMeshProUGUI positionText;
+    private TextMeshProUGUI finishTimeText;
+    private TextMeshProUGUI bestLapText;
+    private TextMeshProUGUI topSpeedText;
+    private TextMeshProUGUI averageSpeedText;
+    private Button garageButton;
+    private Button mainMenuButton;
+    private Button profileButton;
+    private float showDelay = 2f;
     private List<GameObject> spawnedRows = new List<GameObject>();
+
+    public void SetupRefs(GameObject panel, Transform list, GameObject rowPrefab,
+        TextMeshProUGUI pos, TextMeshProUGUI time, TextMeshProUGUI lap,
+        TextMeshProUGUI topSpd, TextMeshProUGUI avgSpd,
+        Button garage, Button mainMenu, Button profile)
+    {
+        resultsPanel = panel;
+        playerListParent = list;
+        playerRowPrefab = rowPrefab;
+        positionText = pos;
+        finishTimeText = time;
+        bestLapText = lap;
+        topSpeedText = topSpd;
+        averageSpeedText = avgSpd;
+        garageButton = garage;
+        mainMenuButton = mainMenu;
+        profileButton = profile;
+
+        if (resultsPanel != null)
+            resultsPanel.SetActive(false);
+    }
 
     private void OnEnable()
     {
@@ -40,22 +51,6 @@ public class ResultsPanel : MonoBehaviour
     private void OnDisable()
     {
         PlayerLapTracker.OnLocalPlayerFinished -= OnRaceFinished;
-    }
-
-    private void Start()
-    {
-        TryFindUI();
-
-        if (resultsPanel != null)
-            resultsPanel.SetActive(false);
-
-        EnsurePlayerListMask();
-    }
-
-    public void RefreshUI()
-    {
-        TryFindUI();
-        EnsurePlayerListMask();
     }
 
     private void OnRaceFinished()
@@ -72,161 +67,6 @@ public class ResultsPanel : MonoBehaviour
         ShowResults();
     }
 
-    private void TryFindUI()
-    {
-        if (resultsPanel == null)
-        {
-            var go = GameObject.Find("resultpanal");
-            if (go == null) go = GameObject.Find("ResultsPanel");
-            if (go != null) resultsPanel = go;
-        }
-        if (playerListParent == null && resultsPanel != null)
-        {
-            Transform found = FindChildRecursive(resultsPanel.transform, "playerlist");
-            if (found == null) found = FindChildRecursive(resultsPanel.transform, "PlayerList");
-            if (found != null) playerListParent = found;
-        }
-        if (playerListParent == null)
-        {
-            var go = GameObject.Find("playerlist");
-            if (go == null) go = GameObject.Find("PlayerList");
-            if (go != null) playerListParent = go.transform;
-        }
-        if (playerRowPrefab == null && resultsPanel != null)
-        {
-            Transform found = FindChildRecursive(resultsPanel.transform, "playerrow 1");
-            if (found == null) found = FindChildRecursive(resultsPanel.transform, "playerrow 1(Clone)");
-            if (found != null)
-            {
-                playerRowPrefab = found.gameObject;
-                playerRowPrefab.SetActive(false);
-            }
-        }
-        if (positionText == null)
-        {
-            var go = GameObject.Find("position");
-            if (go != null) positionText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (finishTimeText == null)
-        {
-            var go = GameObject.Find("finishtime");
-            if (go != null) finishTimeText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (bestLapText == null)
-        {
-            var go = GameObject.Find("bestlap");
-            if (go != null) bestLapText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (topSpeedText == null)
-        {
-            var go = GameObject.Find("top speed");
-            if (go == null) go = GameObject.Find("topspeed");
-            if (go != null) topSpeedText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (averageSpeedText == null)
-        {
-            var go = GameObject.Find("avarage speed");
-            if (go != null) averageSpeedText = go.GetComponent<TextMeshProUGUI>();
-        }
-        if (garageButton == null)
-        {
-            Transform t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "garage");
-            if (t == null) t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "GarageButton");
-            if (t == null)
-            {
-                GameObject g = GameObject.Find("garage");
-                if (g != null) t = g.transform;
-            }
-            if (t != null)
-            {
-                garageButton = t.GetComponent<Button>();
-                if (garageButton == null)
-                    garageButton = t.GetComponentInParent<Button>();
-            }
-        }
-        if (mainMenuButton == null)
-        {
-            Transform t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "mainmenu");
-            if (t == null) t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "MainMenuButton");
-            if (t == null)
-            {
-                GameObject g = GameObject.Find("mainmenu");
-                if (g != null) t = g.transform;
-            }
-            if (t != null)
-            {
-                mainMenuButton = t.GetComponent<Button>();
-                if (mainMenuButton == null)
-                    mainMenuButton = t.GetComponentInParent<Button>();
-            }
-        }
-        if (profileButton == null)
-        {
-            Transform t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "profile");
-            if (t == null) t = FindChildRecursive(resultsPanel != null ? resultsPanel.transform : transform, "ProfileButton");
-            if (t == null)
-            {
-                GameObject g = GameObject.Find("profile");
-                if (g != null) t = g.transform;
-            }
-            if (t != null)
-            {
-                profileButton = t.GetComponent<Button>();
-                if (profileButton == null)
-                    profileButton = t.GetComponentInParent<Button>();
-            }
-        }
-
-        Debug.Log("TryFindUI: resultsPanel=" + (resultsPanel != null) + " [" + (resultsPanel != null ? resultsPanel.name : "null") + "] playerListParent=" + (playerListParent != null) + " [" + (playerListParent != null ? playerListParent.name : "null") + "] playerRowPrefab=" + (playerRowPrefab != null) + " [" + (playerRowPrefab != null ? playerRowPrefab.name : "null") + "]");
-    }
-
-    private Transform FindChildRecursive(Transform parent, string name)
-    {
-        foreach (Transform child in parent)
-        {
-            if (child.name == name)
-                return child;
-            Transform found = FindChildRecursive(child, name);
-            if (found != null)
-                return found;
-        }
-        return null;
-    }
-
-    private void EnsurePlayerListMask()
-    {
-        if (playerListParent == null)
-            return;
-
-        TextMeshProUGUI strayText = playerListParent.GetComponent<TextMeshProUGUI>();
-        if (strayText != null)
-            strayText.enabled = false;
-
-        if (playerListParent.GetComponent<Mask>() == null)
-            playerListParent.gameObject.AddComponent<Mask>();
-
-        if (playerListParent.GetComponent<Image>() == null && playerListParent.GetComponent<TextMeshProUGUI>() == null)
-        {
-            Image img = playerListParent.gameObject.AddComponent<Image>();
-            if (img != null)
-                img.color = new Color(0f, 0f, 0f, 0.01f);
-        }
-
-        VerticalLayoutGroup vlg = playerListParent.GetComponent<VerticalLayoutGroup>();
-        if (vlg == null) vlg = playerListParent.gameObject.AddComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.UpperCenter;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-        vlg.spacing = 4;
-        vlg.padding = new RectOffset(10, 10, 10, 10);
-
-        ContentSizeFitter csf = playerListParent.GetComponent<ContentSizeFitter>();
-        if (csf == null) csf = playerListParent.gameObject.AddComponent<ContentSizeFitter>();
-        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-    }
-
     private void PlayClickSound()
     {
         if (AudioManager.instance != null)
@@ -235,7 +75,6 @@ public class ResultsPanel : MonoBehaviour
 
     public void ShowResults()
     {
-        TryFindUI();
         BindButtons();
         OpenPanel();
         PopulateLeaderboard();
@@ -317,15 +156,35 @@ public class ResultsPanel : MonoBehaviour
         int position = GetLocalPlayerPosition();
 
         if (positionText != null)
-            positionText.text = position.ToString();
+        {
+            positionText.text = "POSITION: " + position;
+            positionText.fontSize = 36;
+            positionText.color = new Color(1f, 0.8f, 0f);
+        }
         if (finishTimeText != null)
-            finishTimeText.text = localPlayer.isFinished ? FormatTime(localPlayer.finishTime) : "DNF";
+        {
+            finishTimeText.text = "TIME: " + (localPlayer.isFinished ? FormatTime(localPlayer.finishTime) : "DNF");
+            finishTimeText.fontSize = 32;
+            finishTimeText.color = new Color(0f, 0.9f, 1f);
+        }
         if (bestLapText != null)
-            bestLapText.text = localPlayer.bestLap > 0f ? FormatTime(localPlayer.bestLap) : "--";
+        {
+            bestLapText.text = "BEST LAP: " + (localPlayer.bestLap > 0f ? FormatTime(localPlayer.bestLap) : "--");
+            bestLapText.fontSize = 32;
+            bestLapText.color = new Color(0f, 1f, 0.4f);
+        }
         if (topSpeedText != null)
-            topSpeedText.text = localPlayer.topSpeed > 0f ? localPlayer.topSpeed.ToString("0") + " KM/H" : "--";
+        {
+            topSpeedText.text = "TOP SPEED: " + (localPlayer.topSpeed > 0f ? localPlayer.topSpeed.ToString("0") + " KM/H" : "--");
+            topSpeedText.fontSize = 32;
+            topSpeedText.color = new Color(1f, 0.4f, 0f);
+        }
         if (averageSpeedText != null)
-            averageSpeedText.text = localPlayer.averageSpeed > 0f ? localPlayer.averageSpeed.ToString("0") + " KM/H" : "--";
+        {
+            averageSpeedText.text = "AVG SPEED: " + (localPlayer.averageSpeed > 0f ? localPlayer.averageSpeed.ToString("0") + " KM/H" : "--");
+            averageSpeedText.fontSize = 32;
+            averageSpeedText.color = new Color(1f, 0.6f, 0.2f);
+        }
     }
 
     private List<PlayerResult> CollectPlayers()
