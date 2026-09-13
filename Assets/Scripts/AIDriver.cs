@@ -1,13 +1,34 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 
 public class AIDriver : MonoBehaviour
 {
-    [Header("AI")]
-    public float waypointReachDist = 12f;
-    public float stuckTimeout = 2f;
+    [Header("AI Difficulty")]
+    [Range(0.5f, 1f)]
+    public float skillLevel = 0.75f;
+    public float maxSpeedVariation = 15f;
+    public float brakeSkill = 0.7f;
+
+    [Header("Path Following")]
+    public float minLookAhead = 8f;
+    public float maxLookAhead = 25f;
+    public float steerResponsiveness = 14f;
+
+    [Header("Cornering")]
+    public float maxLateralAccel = 8f;
+
+    [Header("Opponent Avoidance")]
+    public float avoidCheckDistance = 14f;
+    public float avoidCheckRadius = 2.2f;
+    public float avoidSteerStrength = 0.6f;
+    public LayerMask carLayerMask = ~0;
+
+    [Header("Boundary Correction")]
+    public float boundaryPushStrength = 1.5f;
+
+    [Header("Stuck Recovery")]
+    public float stuckTimeout = 3f;
     public float reverseTime = 1.5f;
     public float turnTime = 2f;
 
@@ -18,7 +39,7 @@ public class AIDriver : MonoBehaviour
     private bool ready = false;
     private float readyTimer = 0f;
 
-    private enum State { Wait, Drive, Reverse, Turn }
+    private enum State { Wait, Drive, Reverse, Turn, Finished }
     private State state = State.Wait;
     private float stateTimer = 0f;
     private Vector3 lastPos;
@@ -30,8 +51,12 @@ public class AIDriver : MonoBehaviour
     private int totalCheckpoints = 0;
     private int nextCP = 0;
 
-    private List<Vector3> roadWaypoints = new List<Vector3>();
-    private int roadWaypointIndex = 0;
+    private int lineIndex = 0;
+
+    private float aiMaxSpeed;
+    private float aiMotorForce;
+    private float aiBrakeForce;
+    private int startFrames = 0;
 
     public void Initialize(string aiName)
     {
@@ -39,16 +64,76 @@ public class AIDriver : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         tracker = GetComponent<PlayerLapTracker>();
 
-        if (car != null) car.useExternalInput = true;
-        if (tracker != null) tracker.aiName = aiName;
-        if (rb != null) { rb.isKinematic = false; rb.useGravity = true; }
+        if (car == null)
+        {
+            Debug.LogError($"AIDriver on '{gameObject.name}': No PhotonCarController found!");
+            return;
+        }
+
+        car.useExternalInput = true;
+
+        if (tracker != null)
+        {
+            tracker.aiName = aiName;
+            tracker.totalLaps = GameSession.Instance != null ? GameSession.Instance.TotalLaps : 1;
+        }
+
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+        }
+
+        aiMaxSpeed = car.maxSpeed * Mathf.Lerp(0.75f, 0.95f, skillLevel);
+        aiMotorForce = car.motorForce * Mathf.Lerp(0.8f, 1.0f, skillLevel);
+        aiBrakeForce = car.brakeForce;
+
+        float variation = Random.Range(-maxSpeedVariation, maxSpeedVariation);
+        aiMaxSpeed = Mathf.Clamp(aiMaxSpeed + variation, 40f, car.maxSpeed);
 
         lastPos = transform.position;
         CacheCheckpoints();
-        DetectRoadPath();
-        nextCP = 0;
-        FindNearestWaypoint();
-        Debug.Log($"AI '{aiName}': checkpoints={totalCheckpoints}, roadWaypoints={roadWaypoints.Count}, pos={transform.position}");
+        nextCP = tracker != null ? tracker.nextCheckpointIndex : 0;
+
+        EnsureTrackSystems();
+
+        lineIndex = RacingLine.Instance != null ? RacingLine.Instance.FindNearestIndex(transform.position) : 0;
+
+        Debug.Log($"AI '{aiName}': checkpoints={totalCheckpoints}, linePoints={RacingLine.Instance?.line.Count ?? 0}, maxSpeed={aiMaxSpeed:F0}, skill={skillLevel}");
+    }
+
+    private void EnsureTrackSystems()
+    {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (sceneName != "aioponent")
+            return;
+
+        if (TrackData.Instance == null)
+        {
+            GameObject tdObj = new GameObject("TrackData");
+            tdObj.AddComponent<TrackData>();
+        }
+
+        if (RacingLine.Instance == null)
+        {
+            GameObject rlObj = new GameObject("RacingLine");
+            rlObj.AddComponent<RacingLine>();
+        }
+
+        if (SpeedProfile.Instance == null)
+        {
+            GameObject spObj = new GameObject("SpeedProfile");
+            spObj.AddComponent<SpeedProfile>();
+        }
+
+        if (TrackData.Instance.points.Count == 0)
+            TrackData.Instance.Build();
+
+        if (RacingLine.Instance.line.Count == 0)
+            RacingLine.Instance.Build();
+
+        if (SpeedProfile.Instance.maxSpeeds.Count == 0)
+            SpeedProfile.Instance.Build(aiMaxSpeed);
     }
 
     private void CacheCheckpoints()
@@ -66,205 +151,41 @@ public class AIDriver : MonoBehaviour
         totalCheckpoints = sortedCheckpoints.Count;
     }
 
-    private void DetectRoadPath()
-    {
-        roadWaypoints.Clear();
-
-        if (TryDetectFromRoadWaypointsParent()) return;
-        if (TryDetectFromRoadParts()) return;
-        if (TryDetectFromTrackModel()) return;
-        if (TryDetectFromSceneObjects()) return;
-
-        Debug.Log("AIDriver: No road objects found, using checkpoints only");
-    }
-
-    private bool TryDetectFromRoadWaypointsParent()
-    {
-        GameObject wpParent = GameObject.Find("RoadWaypoints");
-        if (wpParent == null) return false;
-
-        List<KeyValuePair<int, Transform>> indexed = new List<KeyValuePair<int, Transform>>();
-        foreach (Transform child in wpParent.transform)
-        {
-            int index = 0;
-            Match match = Regex.Match(child.name, @"\d+");
-            if (match.Success) index = int.Parse(match.Value);
-            indexed.Add(new KeyValuePair<int, Transform>(index, child));
-        }
-        indexed.Sort((a, b) => a.Key.CompareTo(b.Key));
-
-        foreach (var pair in indexed)
-            roadWaypoints.Add(pair.Value.position);
-
-        Debug.Log("AIDriver: Found " + roadWaypoints.Count + " waypoints from RoadWaypoints parent");
-        return roadWaypoints.Count > 0;
-    }
-
-    private bool TryDetectFromRoadParts()
-    {
-        GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
-        List<GameObject> roadParts = new List<GameObject>();
-
-        foreach (GameObject obj in allObjects)
-        {
-            if (obj.name.StartsWith("Road_Part"))
-                roadParts.Add(obj);
-        }
-
-        if (roadParts.Count == 0) return false;
-
-        List<KeyValuePair<int, GameObject>> indexed = new List<KeyValuePair<int, GameObject>>();
-        foreach (GameObject part in roadParts)
-        {
-            int index = 0;
-            Match match = Regex.Match(part.name, @"\d+");
-            if (match.Success) index = int.Parse(match.Value);
-            indexed.Add(new KeyValuePair<int, GameObject>(index, part));
-        }
-        indexed.Sort((a, b) => a.Key.CompareTo(b.Key));
-
-        foreach (var pair in indexed)
-        {
-            Renderer renderer = pair.Value.GetComponentInChildren<Renderer>();
-            if (renderer != null)
-            {
-                Bounds bounds = renderer.bounds;
-                roadWaypoints.Add(new Vector3(bounds.center.x, bounds.center.y + 1f, bounds.center.z));
-            }
-            else
-            {
-                roadWaypoints.Add(pair.Value.transform.position + Vector3.up * 1f);
-            }
-        }
-
-        Debug.Log("AIDriver: Found " + roadWaypoints.Count + " road waypoints from Road_Part objects");
-        return roadWaypoints.Count > 0;
-    }
-
-    private bool TryDetectFromTrackModel()
-    {
-        string[] trackNames = { "Track", "RealisticRaceTrack", "Track (1)", "RaceTrack", "RaceTrackExport" };
-        GameObject trackModel = null;
-
-        foreach (string name in trackNames)
-        {
-            trackModel = GameObject.Find(name);
-            if (trackModel != null) break;
-        }
-
-        if (trackModel == null) return false;
-
-        List<KeyValuePair<int, Transform>> indexed = new List<KeyValuePair<int, Transform>>();
-        foreach (Transform child in trackModel.transform)
-        {
-            if (child.GetComponentInChildren<Renderer>() == null) continue;
-            if (child.name.Contains("WALL") || child.name.Contains("GRASS") || child.name.Contains("BANNER")
-                || child.name.Contains("TENT") || child.name.Contains("SIGN") || child.name.Contains("TOWER")
-                || child.name.Contains("TRIBUENE") || child.name.Contains("LAMP") || child.name.Contains("PIT")
-                || child.name.Contains("FLAG") || child.name.Contains("BRIDGE") || child.name.Contains("KERB"))
-                continue;
-
-            int index = 0;
-            Match match = Regex.Match(child.name, @"\d+");
-            if (match.Success) index = int.Parse(match.Value);
-            indexed.Add(new KeyValuePair<int, Transform>(index, child));
-        }
-        indexed.Sort((a, b) => a.Key.CompareTo(b.Key));
-
-        foreach (var pair in indexed)
-        {
-            Renderer renderer = pair.Value.GetComponentInChildren<Renderer>();
-            if (renderer != null)
-            {
-                Bounds bounds = renderer.bounds;
-                roadWaypoints.Add(new Vector3(bounds.center.x, bounds.center.y + 1f, bounds.center.z));
-            }
-            else
-            {
-                roadWaypoints.Add(pair.Value.transform.position + Vector3.up * 1f);
-            }
-        }
-
-        if (roadWaypoints.Count > 0)
-            Debug.Log("AIDriver: Found " + roadWaypoints.Count + " road waypoints from Track model children");
-
-        return roadWaypoints.Count > 0;
-    }
-
-    private bool TryDetectFromSceneObjects()
-    {
-        RaceCheckpoint[] cps = FindObjectsByType<RaceCheckpoint>(FindObjectsSortMode.None);
-        if (cps.Length == 0) return false;
-
-        List<KeyValuePair<int, Vector3>> indexed = new List<KeyValuePair<int, Vector3>>();
-        foreach (RaceCheckpoint cp in cps)
-        {
-            indexed.Add(new KeyValuePair<int, Vector3>(cp.checkpointIndex, cp.transform.position));
-        }
-        indexed.Sort((a, b) => a.Key.CompareTo(b.Key));
-
-        foreach (var pair in indexed)
-            roadWaypoints.Add(pair.Value);
-
-        Debug.Log("AIDriver: Using " + roadWaypoints.Count + " checkpoint positions as road waypoints");
-        return roadWaypoints.Count > 0;
-    }
-
-    private void FindNearestWaypoint()
-    {
-        if (roadWaypoints.Count == 0) return;
-
-        float bestDist = float.MaxValue;
-        int bestIndex = 0;
-
-        for (int i = 0; i < roadWaypoints.Count; i++)
-        {
-            float d = Vector3.Distance(transform.position, roadWaypoints[i]);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                bestIndex = i;
-            }
-        }
-
-        roadWaypointIndex = bestIndex;
-    }
-
-    private Vector3 GetRecoveryTarget()
-    {
-        if (roadWaypoints.Count > 0)
-        {
-            float bestDist = float.MaxValue;
-            Vector3 bestPos = roadWaypoints[0];
-
-            for (int i = 0; i < roadWaypoints.Count; i++)
-            {
-                float d = Vector3.Distance(transform.position, roadWaypoints[i]);
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    bestPos = roadWaypoints[i];
-                }
-            }
-            return bestPos;
-        }
-
-        RaceCheckpoint cp = GetCurrentTarget();
-        if (cp != null) return cp.transform.position;
-
-        return transform.position + transform.forward * 30f;
-    }
-
     private void Start()
     {
         if (car == null)
+        {
+            car = GetComponent<PhotonCarController>();
+            rb = GetComponent<Rigidbody>();
+            tracker = GetComponent<PlayerLapTracker>();
+        }
+
+        if (car == null)
+        {
+            Debug.LogWarning($"AIDriver on '{gameObject.name}': PhotonCarController not found yet, will retry...");
             StartCoroutine(DelayedInit());
+        }
     }
 
     private IEnumerator DelayedInit()
     {
-        yield return new WaitForSeconds(0.5f);
-        Initialize("AI");
+        yield return new WaitForSeconds(1f);
+
+        if (car != null) yield break;
+
+        car = GetComponent<PhotonCarController>();
+        rb = GetComponent<Rigidbody>();
+        tracker = GetComponent<PlayerLapTracker>();
+
+        if (car != null)
+        {
+            string aiName = gameObject.name;
+            Initialize(aiName);
+        }
+        else
+        {
+            Debug.LogError($"AIDriver on '{gameObject.name}': Failed to find PhotonCarController after delay!");
+        }
     }
 
     private void Update()
@@ -274,249 +195,512 @@ public class AIDriver : MonoBehaviour
         if ((RaceManager.Instance != null && RaceManager.Instance.raceStarted) || readyTimer > 4f)
         {
             ready = true;
+            stuckTime = 0f;
+            stuckCount = 0;
+            startFrames = 30;
+            lastPos = transform.position;
+
+            if (RacingLine.Instance != null && RacingLine.Instance.line.Count > 0)
+            {
+                lineIndex = RacingLine.Instance.FindNearestIndex(transform.position);
+                // Snap position to the racing line so the car starts on the road
+                Vector3 linePos = RacingLine.Instance.line[lineIndex].position;
+                linePos.y = transform.position.y;
+                transform.position = linePos;
+                SnapToLineDirection();
+            }
+
+            if (rb != null)
+            {
+                rb.linearVelocity = rb.linearVelocity * 0.3f;
+                rb.angularVelocity = Vector3.zero;
+            }
+
             state = State.Drive;
+
+            Debug.Log($"AI '{tracker?.aiName}': READY - starting from line index {lineIndex}, forward={transform.forward}");
         }
+    }
+
+    public void ResetForNewRace()
+    {
+        ready = false;
+        readyTimer = 0f;
+        state = State.Wait;
+        stateTimer = 0f;
+        stuckTime = 0f;
+        stuckCount = 0;
+        startFrames = 0;
+        steer = 0f;
+        lineIndex = 0;
+        nextCP = 0;
+        lastPos = transform.position;
     }
 
     private void FixedUpdate()
     {
         if (car == null) return;
-        if (!ready) { car.SetInput(0f, 1f, 0f); return; }
+
+        if (!ready)
+        {
+            PrepareDuringCountdown();
+            return;
+        }
+
+        if (tracker != null && tracker.raceCompleted)
+        {
+            state = State.Finished;
+        }
+
+        if (tracker != null && tracker.aiName != "" && nextCP != tracker.nextCheckpointIndex)
+        {
+            nextCP = tracker.nextCheckpointIndex;
+        }
 
         switch (state)
         {
             case State.Drive: DoDrive(); break;
             case State.Reverse: DoReverse(); break;
             case State.Turn: DoTurn(); break;
+            case State.Finished: DoFinished(); break;
         }
     }
 
-    private RaceCheckpoint GetCurrentTarget()
+    private void PrepareDuringCountdown()
     {
-        if (sortedCheckpoints == null || totalCheckpoints == 0) return null;
-
-        for (int i = 0; i < sortedCheckpoints.Count; i++)
+        if (countdownPrepared > 1f)
         {
-            if (sortedCheckpoints[i].checkpointIndex == nextCP)
-                return sortedCheckpoints[i];
-        }
-        return null;
-    }
-
-    private void AdvanceCheckpoint()
-    {
-        nextCP = (nextCP + 1) % totalCheckpoints;
-        Debug.Log($"AI '{tracker?.aiName}': CP -> {nextCP}");
-    }
-
-    private Vector3 GetSteerPoint()
-    {
-        if (roadWaypoints.Count > 0)
-        {
-            return GetRoadSteerPoint();
-        }
-        return GetCheckpointSteerPoint();
-    }
-
-    private Vector3 GetRoadSteerPoint()
-    {
-        Vector3 currentPos = transform.position;
-        Vector3 currentWP = roadWaypoints[roadWaypointIndex % roadWaypoints.Count];
-        float distToWP = Vector3.Distance(currentPos, currentWP);
-
-        if (distToWP < waypointReachDist)
-        {
-            roadWaypointIndex = (roadWaypointIndex + 1) % roadWaypoints.Count;
-            currentWP = roadWaypoints[roadWaypointIndex % roadWaypoints.Count];
-        }
-
-        int nextWPIndex = (roadWaypointIndex + 1) % roadWaypoints.Count;
-        Vector3 nextWP = roadWaypoints[nextWPIndex];
-
-        float lookAheadDist = Mathf.Clamp(rb.linearVelocity.magnitude * 3.6f / 30f, 0.2f, 1.0f);
-        Vector3 steerPoint = Vector3.Lerp(currentWP, nextWP, lookAheadDist * 0.5f);
-
-        RaceCheckpoint cp = GetCurrentTarget();
-        if (cp != null)
-        {
-            float distToCheckpoint = Vector3.Distance(currentPos, cp.transform.position);
-            if (distToCheckpoint < 25f)
+            if (RacingLine.Instance != null && RacingLine.Instance.line.Count > 0)
             {
-                steerPoint = Vector3.Lerp(steerPoint, cp.transform.position, 0.3f);
+                Vector3 target = RacingLine.Instance.line[lineIndex].position;
+                Vector3 dirToTarget = target - transform.position;
+                dirToTarget.y = 0f;
+
+                if (dirToTarget.sqrMagnitude > 0.01f)
+                {
+                    Vector3 fwd = transform.forward; fwd.y = 0; fwd.Normalize();
+                    Vector3 dirNorm = dirToTarget.normalized;
+                    float cross = Vector3.Cross(fwd, dirNorm).y;
+                    float angle = Vector3.Angle(fwd, dirNorm);
+
+                    float steerPrep = Mathf.Clamp(cross, -1f, 1f);
+                    steerPrep *= Mathf.Lerp(1f, 0.3f, angle / 90f);
+                    car.SetInput(0.1f, 0.8f, steerPrep);
+                }
+                else
+                {
+                    car.SetInput(0.1f, 0.8f, 0f);
+                }
+            }
+            else
+            {
+                car.SetInput(0.1f, 0.8f, 0f);
             }
         }
-
-        return steerPoint;
+        else
+        {
+            car.SetInput(0f, 0.9f, 0f);
+        }
+        countdownPrepared += Time.fixedDeltaTime;
     }
 
-    private Vector3 GetCheckpointSteerPoint()
+    private float countdownPrepared = 0f;
+
+    private void SnapToLineDirection()
     {
-        RaceCheckpoint target = GetCurrentTarget();
-        if (target == null)
-        {
-            if (roadWaypoints.Count > 0)
-                return roadWaypoints[roadWaypointIndex % roadWaypoints.Count];
-            return transform.position + transform.forward * 50f;
-        }
-        return target.transform.position;
+        if (RacingLine.Instance == null || RacingLine.Instance.line.Count == 0) return;
+
+        int lookAhead = RacingLine.Instance.GetForwardIndex(lineIndex, 20f);
+        Vector3 target = RacingLine.Instance.line[lookAhead].position;
+        Vector3 dir = target - transform.position;
+        dir.y = 0f;
+
+        if (dir.sqrMagnitude < 0.01f) return;
+
+        Quaternion targetRot = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        transform.rotation = targetRot;
+
+        Debug.Log($"AI '{tracker?.aiName}': Snapped to racing line direction at index {lineIndex}");
     }
 
     private void DoDrive()
     {
-        Vector3 steerPoint = GetSteerPoint();
+        if (RacingLine.Instance == null || RacingLine.Instance.line.Count == 0)
+        {
+            car.SetInput(0.5f, 0f, 0f);
+            return;
+        }
 
-        Vector3 dirToTarget = steerPoint - transform.position;
+        UpdateLineIndex();
+
+        float speedKmh = rb.linearVelocity.magnitude * 3.6f;
+        float lookAheadDist = Mathf.Lerp(minLookAhead, maxLookAhead, Mathf.Clamp01(speedKmh / 130f));
+
+        int targetIdx = RacingLine.Instance.GetForwardIndex(lineIndex, lookAheadDist);
+        Vector3 pursuitPoint = RacingLine.Instance.line[targetIdx].position;
+
+        Vector3 dirToTarget = pursuitPoint - transform.position;
         dirToTarget.y = 0f;
 
         if (dirToTarget.sqrMagnitude < 0.01f)
         {
-            if (roadWaypoints.Count > 0)
-            {
-                roadWaypointIndex = (roadWaypointIndex + 1) % roadWaypoints.Count;
-                steerPoint = roadWaypoints[roadWaypointIndex % roadWaypoints.Count];
-                dirToTarget = steerPoint - transform.position;
-                dirToTarget.y = 0f;
-            }
-            else
-            {
-                steerPoint = transform.position + transform.forward * 30f;
-                dirToTarget = steerPoint - transform.position;
-                dirToTarget.y = 0f;
-            }
-        }
-
-        if (dirToTarget.sqrMagnitude < 0.01f)
-        {
-            car.SetInput(0.5f, 0f, 0f);
+            car.SetInput(0.5f, 0f, steer);
+            lastPos = transform.position;
             return;
         }
 
         Vector3 fwd = transform.forward; fwd.y = 0; fwd.Normalize();
         Vector3 dirNorm = dirToTarget.normalized;
         float cross = Vector3.Cross(fwd, dirNorm).y;
-        float angle = Vector3.Angle(fwd, dirNorm);
+        float angleToTarget = Vector3.Angle(fwd, dirNorm);
 
-        steer = Mathf.Lerp(steer, Mathf.Clamp(cross, -1f, 1f), Time.fixedDeltaTime * 5f);
+        float steerSmooth = Mathf.Lerp(steerResponsiveness, steerResponsiveness * 0.6f, Mathf.Clamp01(speedKmh / 140f));
+        steer = Mathf.Lerp(steer, Mathf.Clamp(cross, -1f, 1f), Time.fixedDeltaTime * steerSmooth * 1.8f);
 
-        float throttle = 1f;
+        float boundaryCorrection = ComputeBoundaryCorrection();
+        steer = Mathf.Clamp(steer + boundaryCorrection, -1f, 1f);
+
+        if (startFrames > 0)
+        {
+            startFrames--;
+            float rampT = 1f - (startFrames / 30f);
+            float rampedThrottle = Mathf.Lerp(0.7f, 1f, rampT);
+            float startBrake = angleToTarget > 45f ? Mathf.Lerp(0.3f, 0.6f, brakeSkill) : 0f;
+            if (startFrames > 20) rampedThrottle = Mathf.Max(rampedThrottle, 0.8f);
+            car.SetInput(rampedThrottle, startBrake, steer);
+            lastPos = transform.position;
+            return;
+        }
+
+        float targetSpeed = GetTargetSpeed(targetIdx);
+        float throttle;
         float brake = 0f;
 
-        if (angle > 15f)
-            throttle = Mathf.Lerp(1f, 0.4f, Mathf.Clamp01((angle - 15f) / 50f));
-
-        if (angle > 45f && rb.linearVelocity.magnitude * 3.6f > 25f)
+        if (speedKmh < targetSpeed - 8f)
         {
-            brake = 0.5f;
-            throttle = 0.1f;
+            throttle = 1f;
         }
+        else if (speedKmh > targetSpeed - 5f)
+        {
+            throttle = 0f;
+            float overshoot = Mathf.Clamp01((speedKmh - targetSpeed) / 25f);
+            brake = Mathf.Lerp(0.3f, 1f, overshoot) * Mathf.Lerp(0.8f, 1f, brakeSkill);
+        }
+        else
+        {
+            throttle = 0.3f;
+        }
+
+        if (angleToTarget > 25f)
+        {
+            throttle = Mathf.Min(throttle, 0.05f);
+            brake = Mathf.Max(brake, Mathf.Lerp(0.5f, 0.8f, brakeSkill));
+        }
+
+        float curvatureAhead = GetCurvatureAhead(lineIndex, 50f);
+        if (curvatureAhead > 0.8f)
+        {
+            if (speedKmh > targetSpeed * 0.7f)
+            {
+                throttle = Mathf.Min(throttle, 0.1f);
+                brake = Mathf.Max(brake, 0.4f * Mathf.Lerp(0.7f, 1f, brakeSkill));
+            }
+        }
+        else if (curvatureAhead > 0.4f)
+        {
+            if (speedKmh > targetSpeed * 0.85f)
+                throttle = Mathf.Min(throttle, 0.2f);
+        }
+
+        if (speedKmh > aiMaxSpeed)
+        {
+            throttle = 0f;
+            brake = Mathf.Max(brake, 0.15f);
+        }
+
+        ApplyOpponentAvoidance(ref steer, ref throttle);
 
         car.SetInput(throttle, brake, steer);
 
         float moved = Vector3.Distance(transform.position, lastPos);
-        if (moved < 0.3f)
+        // More lenient at race start - give car time to get rolling
+        float stuckThreshold = (startFrames > 0) ? 0.3f : (speedKmh > 10f ? 0.5f : 0.15f);
+        float timeout = (startFrames > 0) ? 5f : stuckTimeout;
+        if (moved < stuckThreshold)
         {
             stuckTime += Time.fixedDeltaTime;
-            if (stuckTime > stuckTimeout)
-            {
-                stuckCount++;
-                state = State.Reverse;
-                stateTimer = reverseTime;
-                turnDir = GetTurnDirTowardRoad();
-                stuckTime = 0f;
-                Debug.Log($"AI '{tracker?.aiName}': STUCK #{stuckCount} -> reverse");
-            }
+            if (stuckTime > timeout)
+                HandleStuck();
         }
         else
         {
-            stuckTime = 0f;
+            stuckTime = Mathf.Max(0f, stuckTime - Time.fixedDeltaTime * 0.5f);
         }
-        lastPos = transform.position;
 
-        RaceCheckpoint cpTarget = GetCurrentTarget();
-        if (cpTarget != null)
+        lastPos = transform.position;
+    }
+
+    private void UpdateLineIndex()
+    {
+        if (RacingLine.Instance == null || RacingLine.Instance.line.Count == 0) return;
+
+        int n = RacingLine.Instance.line.Count;
+        int bestIdx = lineIndex;
+        float bestDist = Vector3.Distance(transform.position, RacingLine.Instance.line[lineIndex].position);
+
+        int windowSize = Mathf.Min(30, n);
+        for (int i = 1; i <= windowSize; i++)
         {
-            float distToCP = Vector3.Distance(transform.position, cpTarget.transform.position);
-            if (distToCP < 15f)
+            int idx = (lineIndex + i) % n;
+            float d = Vector3.Distance(transform.position, RacingLine.Instance.line[idx].position);
+            if (d < bestDist)
             {
-                AdvanceCheckpoint();
+                bestDist = d;
+                bestIdx = idx;
             }
+        }
+
+        lineIndex = bestIdx;
+    }
+
+    private float GetTargetSpeed(int targetIdx)
+    {
+        if (SpeedProfile.Instance == null) return aiMaxSpeed;
+        return SpeedProfile.Instance.GetMaxSpeed(targetIdx);
+    }
+
+    private float GetCurvatureAhead(int fromIdx, float distance)
+    {
+        if (TrackData.Instance == null || TrackData.Instance.points.Count == 0) return 0f;
+
+        int n = TrackData.Instance.points.Count;
+        float maxCurv = 0f;
+        float accum = 0f;
+        int idx = fromIdx;
+
+        while (accum < distance)
+        {
+            int next = (idx + 1) % n;
+            accum += Vector3.Distance(TrackData.Instance.points[idx].center, TrackData.Instance.points[next].center);
+            float absC = Mathf.Abs(TrackData.Instance.points[next].curvature);
+            if (absC > maxCurv) maxCurv = absC;
+            idx = next;
+        }
+
+        return maxCurv;
+    }
+
+    private float ComputeBoundaryCorrection()
+    {
+        if (TrackData.Instance == null || TrackData.Instance.points.Count == 0) return 0f;
+
+        int trackIdx = TrackData.Instance.FindNearestIndex(transform.position);
+        var pt = TrackData.Instance.points[trackIdx];
+
+        float leftDist = Vector3.Distance(transform.position, pt.left);
+        float rightDist = Vector3.Distance(transform.position, pt.right);
+        float roadWidth = leftDist + rightDist;
+
+        if (roadWidth < 0.1f) return 0f;
+
+        float normalizedPos = (rightDist - leftDist) / roadWidth;
+        float centerOffset = -normalizedPos;
+
+        float absOffset = Mathf.Abs(centerOffset);
+        if (absOffset < 0.3f) return 0f;
+
+        float correction = Mathf.Sign(centerOffset) * Mathf.Lerp(0f, boundaryPushStrength, (absOffset - 0.3f) / 0.7f);
+        return Mathf.Clamp(correction, -1f, 1f);
+    }
+
+    private void ApplyOpponentAvoidance(ref float steerValue, ref float throttleValue)
+    {
+        Vector3 checkCenter = transform.position + transform.forward * (avoidCheckDistance * 0.5f) + Vector3.up * 0.5f;
+        Collider[] hits = Physics.OverlapSphere(checkCenter, avoidCheckDistance * 0.5f, carLayerMask);
+
+        float closestFwdDist = float.MaxValue;
+        float avoidLateral = 0f;
+        bool blocked = false;
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            PhotonCarController otherCar = hits[i].GetComponentInParent<PhotonCarController>();
+            if (otherCar == null || otherCar.transform == transform) continue;
+
+            Vector3 toOther = otherCar.transform.position - transform.position;
+            float fwdDist = Vector3.Dot(toOther, transform.forward);
+            float lateral = Vector3.Dot(toOther, transform.right);
+
+            if (fwdDist > 0.5f && fwdDist < avoidCheckDistance && Mathf.Abs(lateral) < avoidCheckRadius * 2f)
+            {
+                blocked = true;
+                if (fwdDist < closestFwdDist)
+                {
+                    closestFwdDist = fwdDist;
+                    avoidLateral = lateral;
+                }
+            }
+        }
+
+        if (blocked)
+        {
+            float avoidDir = avoidLateral >= 0f ? -1f : 1f;
+            float proximity = Mathf.Clamp01(1f - closestFwdDist / avoidCheckDistance);
+            steerValue = Mathf.Clamp(steerValue + avoidDir * avoidSteerStrength * proximity, -1f, 1f);
+            throttleValue *= Mathf.Lerp(1f, 0.55f, proximity);
         }
     }
 
-    private float GetTurnDirTowardRoad()
+    private void HandleStuck()
     {
-        Vector3 recoveryTarget = GetRecoveryTarget();
-        Vector3 dirToTarget = recoveryTarget - transform.position;
+        stuckCount++;
+        stuckTime = 0f;
+
+        state = State.Reverse;
+        stateTimer = stuckCount >= 3 ? reverseTime * 2f : reverseTime;
+        turnDir = GetTurnDirTowardLine();
+
+        Debug.Log($"AI '{tracker?.aiName}': STUCK #{stuckCount} -> reverse");
+    }
+
+    private float GetTurnDirTowardLine()
+    {
+        if (RacingLine.Instance == null || RacingLine.Instance.line.Count == 0) return 1f;
+
+        // Look ahead on the racing line for a meaningful direction
+        int forwardIdx = RacingLine.Instance.GetForwardIndex(lineIndex, 30f);
+        Vector3 target = RacingLine.Instance.line[forwardIdx].position;
+        Vector3 dirToTarget = target - transform.position;
         dirToTarget.y = 0f;
 
         Vector3 fwd = transform.forward; fwd.y = 0; fwd.Normalize();
         float cross = Vector3.Cross(fwd, dirToTarget.normalized).y;
+
+        if (Mathf.Abs(cross) < 0.15f)
+            cross = Vector3.Cross(fwd, transform.right).y > 0 ? 1f : -1f;
+
         return cross > 0 ? 1f : -1f;
     }
 
     private void DoReverse()
     {
+        UpdateLineIndex();
+
         Vector3 recoveryTarget = GetRecoveryTarget();
         Vector3 dirToTarget = recoveryTarget - transform.position;
         dirToTarget.y = 0f;
 
         Vector3 fwd = transform.forward; fwd.y = 0; fwd.Normalize();
-        dirToTarget.Normalize();
 
-        float reverseSteer = -Vector3.Cross(fwd, dirToTarget).y;
-        steer = Mathf.Lerp(steer, Mathf.Clamp(reverseSteer, -1f, 1f), Time.fixedDeltaTime * 5f);
+        float reverseSteer;
+        if (dirToTarget.sqrMagnitude > 0.1f)
+            reverseSteer = -Vector3.Cross(fwd, dirToTarget.normalized).y;
+        else
+            reverseSteer = turnDir;
 
-        car.SetInput(-0.7f, 0f, steer);
+        steer = Mathf.Lerp(steer, Mathf.Clamp(reverseSteer * turnDir, -1f, 1f), Time.fixedDeltaTime * 8f);
+
+        float reverseForce = stuckCount >= 3 ? -1f : -0.8f;
+        car.SetInput(reverseForce, 0f, steer);
         stateTimer -= Time.fixedDeltaTime;
 
         float moved = Vector3.Distance(transform.position, lastPos);
 
-        if (stateTimer <= 0f || moved > 3f)
+        if (stateTimer <= 0f || moved > 8f)
         {
             state = State.Turn;
-            stateTimer = turnTime;
-            Debug.Log($"AI '{tracker?.aiName}': turning toward road...");
+            stateTimer = turnTime * (stuckCount >= 3 ? 1.5f : 1f);
         }
         lastPos = transform.position;
     }
 
     private void DoTurn()
     {
+        // Re-find nearest racing line point after reversing
+        UpdateLineIndex();
+
         Vector3 recoveryTarget = GetRecoveryTarget();
         Vector3 dirToTarget = recoveryTarget - transform.position;
         dirToTarget.y = 0f;
 
         Vector3 fwd = transform.forward; fwd.y = 0; fwd.Normalize();
-        dirToTarget.Normalize();
 
-        float cross = Vector3.Cross(fwd, dirToTarget).y;
-        float angle = Vector3.Angle(fwd, dirToTarget);
+        float cross = 0f;
+        float angle = 90f;
+        if (dirToTarget.sqrMagnitude > 0.1f)
+        {
+            cross = Vector3.Cross(fwd, dirToTarget.normalized).y;
+            angle = Vector3.Angle(fwd, dirToTarget);
+        }
 
-        steer = Mathf.Lerp(steer, Mathf.Clamp(cross, -1f, 1f), Time.fixedDeltaTime * 5f);
+        float turnAggression = stuckCount >= 3 ? 1.5f : 1.2f;
+        steer = Mathf.Lerp(steer, Mathf.Clamp(cross * turnAggression, -1f, 1f), Time.fixedDeltaTime * 8f);
 
-        float throttle = angle > 20f ? 0.3f : 0.7f;
+        float throttle = angle > 15f ? 0.2f : 0.6f;
         car.SetInput(throttle, 0f, steer);
-
         stateTimer -= Time.fixedDeltaTime;
 
-        if (angle < 30f)
+        if (angle < 35f)
         {
             state = State.Drive;
             stuckTime = 0f;
             stuckCount = 0;
-            FindNearestWaypoint();
+            UpdateLineIndex();
             Debug.Log($"AI '{tracker?.aiName}': facing road (angle={angle:F0}) -> drive");
             return;
         }
 
         if (stateTimer <= 0f)
         {
-            state = State.Drive;
-            stuckTime = 0f;
-            stuckCount = 0;
-            FindNearestWaypoint();
-            Debug.Log($"AI '{tracker?.aiName}': turn timeout -> drive");
+            if (angle > 30f && stuckCount < 5)
+            {
+                state = State.Reverse;
+                stateTimer = reverseTime * 1.5f;
+                turnDir = GetTurnDirTowardLine();
+                stuckCount++;
+                Debug.Log($"AI '{tracker?.aiName}': turn timeout angle={angle:F0} -> reverse again (stuck #{stuckCount})");
+            }
+            else
+            {
+                state = State.Drive;
+                stuckTime = 0f;
+                stuckCount = 0;
+                UpdateLineIndex();
+                Debug.Log($"AI '{tracker?.aiName}': turn timeout -> drive");
+            }
         }
         lastPos = transform.position;
+    }
+
+    private void DoFinished()
+    {
+        float speedKmh = rb.linearVelocity.magnitude * 3.6f;
+        if (speedKmh > 3f)
+            car.SetInput(0f, 0.6f, 0f);
+        else
+            car.SetInput(0f, 0.05f, 0f);
+    }
+
+    private Vector3 GetRecoveryTarget()
+    {
+        if (RacingLine.Instance != null && RacingLine.Instance.line.Count > 0)
+        {
+            // Look AHEAD on the racing line, not at the nearest point
+            // The nearest point may be right under the car, giving meaningless angles
+            int forwardIdx = RacingLine.Instance.GetForwardIndex(lineIndex, 50f);
+            return RacingLine.Instance.line[forwardIdx].position;
+        }
+
+        if (sortedCheckpoints != null && sortedCheckpoints.Count > 0)
+        {
+            for (int i = 0; i < sortedCheckpoints.Count; i++)
+            {
+                if (sortedCheckpoints[i].checkpointIndex == nextCP)
+                    return sortedCheckpoints[i].transform.position;
+            }
+            return sortedCheckpoints[0].transform.position;
+        }
+
+        return transform.position + transform.forward * 30f;
     }
 }

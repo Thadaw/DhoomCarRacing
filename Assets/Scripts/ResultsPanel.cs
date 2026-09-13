@@ -55,8 +55,22 @@ public class ResultsPanel : MonoBehaviour
 
     private void OnRaceFinished()
     {
-        if (!PhotonNetwork.InRoom && GameSession.Instance != null && GameSession.Instance.CurrentMode != GameSession.GameMode.AI)
+        if (PhotonNetwork.InRoom)
+        {
+            StartCoroutine(ShowAfterDelay());
             return;
+        }
+
+        if (GameSession.Instance != null && GameSession.Instance.CurrentMode == GameSession.GameMode.AI)
+        {
+            StartCoroutine(ShowAfterDelay());
+            return;
+        }
+
+        if (GameSession.Instance != null && GameSession.Instance.CurrentMode == GameSession.GameMode.SinglePlayer)
+        {
+            return;
+        }
 
         StartCoroutine(ShowAfterDelay());
     }

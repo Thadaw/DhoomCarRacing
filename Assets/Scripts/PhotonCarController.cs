@@ -74,6 +74,8 @@ public class PhotonCarController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (carRb == null) return;
+
         if (useExternalInput)
         {
             // AI car — skip ownership checks, just drive
@@ -92,14 +94,13 @@ public class PhotonCarController : MonoBehaviour
         // Lock car until countdown finishes
         if (RaceManager.Instance != null && !RaceManager.Instance.raceStarted)
         {
-            frontLeftWheel.motorTorque = 0f;
-            frontRightWheel.motorTorque = 0f;
+            if (frontLeftWheel != null) frontLeftWheel.motorTorque = 0f;
+            if (frontRightWheel != null) frontRightWheel.motorTorque = 0f;
 
-
-            frontLeftWheel.brakeTorque = brakeForce;
-            frontRightWheel.brakeTorque = brakeForce;
-            rearLeftWheel.brakeTorque = brakeForce;
-            rearRightWheel.brakeTorque = brakeForce;
+            if (frontLeftWheel != null) frontLeftWheel.brakeTorque = brakeForce;
+            if (frontRightWheel != null) frontRightWheel.brakeTorque = brakeForce;
+            if (rearLeftWheel != null) rearLeftWheel.brakeTorque = brakeForce;
+            if (rearRightWheel != null) rearRightWheel.brakeTorque = brakeForce;
 
             UpdateWheels();
             return;
@@ -141,6 +142,8 @@ public class PhotonCarController : MonoBehaviour
 
     private void HandleMotor()
     {
+        if (frontLeftWheel == null || frontRightWheel == null) return;
+
         float currentSpeed = CarSpeed();
 
         if (currentSpeed < maxSpeed)
@@ -157,6 +160,8 @@ public class PhotonCarController : MonoBehaviour
 
     private void HandleSteering()
     {
+        if (frontLeftWheel == null || frontRightWheel == null) return;
+
         float speedPercent = Mathf.Clamp01(CarSpeed() / maxSpeed);
 
         float steerLimit =
@@ -184,14 +189,15 @@ public class PhotonCarController : MonoBehaviour
     {
         float currentBrakeForce = isBraking ? brakeForce : 0f;
 
-        frontLeftWheel.brakeTorque = currentBrakeForce;
-        frontRightWheel.brakeTorque = currentBrakeForce;
-        rearLeftWheel.brakeTorque = currentBrakeForce;
-        rearRightWheel.brakeTorque = currentBrakeForce;
+        if (frontLeftWheel != null) frontLeftWheel.brakeTorque = currentBrakeForce;
+        if (frontRightWheel != null) frontRightWheel.brakeTorque = currentBrakeForce;
+        if (rearLeftWheel != null) rearLeftWheel.brakeTorque = currentBrakeForce;
+        if (rearRightWheel != null) rearRightWheel.brakeTorque = currentBrakeForce;
     }
 
     private void ApplyDownforce()
     {
+        if (carRb == null) return;
         carRb.AddForce(
             -transform.up * downforce * carRb.linearVelocity.magnitude,
             ForceMode.Force);
@@ -199,6 +205,7 @@ public class PhotonCarController : MonoBehaviour
 
     private void ApplyDriftControl()
     {
+        if (carRb == null || carRb.isKinematic) return;
         Vector3 localVelocity =
             transform.InverseTransformDirection(carRb.linearVelocity);
 
@@ -210,14 +217,19 @@ public class PhotonCarController : MonoBehaviour
 
     private void ApplyAntiRoll()
     {
-        ApplyAntiRollAxle(frontLeftWheel, frontRightWheel);
-        ApplyAntiRollAxle(rearLeftWheel, rearRightWheel);
+        if (carRb == null) return;
+        if (frontLeftWheel != null && frontRightWheel != null)
+            ApplyAntiRollAxle(frontLeftWheel, frontRightWheel);
+        if (rearLeftWheel != null && rearRightWheel != null)
+            ApplyAntiRollAxle(rearLeftWheel, rearRightWheel);
     }
 
     private void ApplyAntiRollAxle(
         WheelCollider leftWheel,
         WheelCollider rightWheel)
     {
+        if (leftWheel == null || rightWheel == null || carRb == null) return;
+
         WheelHit hit;
 
         float travelLeft = 1.0f;
@@ -277,6 +289,9 @@ public class PhotonCarController : MonoBehaviour
         WheelCollider wheelCollider,
         Transform wheelTransform)
     {
+        if (wheelCollider == null || wheelTransform == null)
+            return;
+
         Vector3 pos;
         Quaternion rot;
 
@@ -288,6 +303,7 @@ public class PhotonCarController : MonoBehaviour
 
     public float CarSpeed()
     {
+        if (carRb == null) return 0f;
         return carRb.linearVelocity.magnitude * 3.6f;
     }
 }
