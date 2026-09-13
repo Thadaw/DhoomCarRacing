@@ -21,7 +21,7 @@ public class TrackPanelSetup : MonoBehaviour
     {
         if (instance == null) return;
         string name = scene.name;
-        if (name != "Track1" && name != "Track2" && name != "Track3")
+        if (name != "Track1" && name != "Track2" && name != "Track3" && name != "aioponent")
             return;
 
         instance.SetupPanels();

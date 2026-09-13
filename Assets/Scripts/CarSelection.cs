@@ -135,9 +135,9 @@ public class CarSelection : MonoBehaviour
         {
             if (GameSession.Instance != null && GameSession.Instance.CurrentMode == GameSession.GameMode.AI)
             {
-                Debug.Log("AI Mode: Loading Track3 directly.");
+                Debug.Log("AI Mode: Loading aioponent scene.");
                 GameSession.Instance.SelectedTrackId = "Track3";
-                SceneManager.LoadScene("Track3");
+                SceneManager.LoadScene("aioponent");
             }
             else
             {

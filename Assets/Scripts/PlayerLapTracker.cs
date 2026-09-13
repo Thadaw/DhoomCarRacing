@@ -15,6 +15,7 @@ public class PlayerLapTracker : MonoBehaviour
     [Header("Current Progress")]
     public int currentLap = 1;
     public int nextCheckpointIndex = 0;
+    private HashSet<int> passedCheckpoints = new HashSet<int>();
 
     [Header("UI")]
     public TextMeshProUGUI lapText;
@@ -31,7 +32,7 @@ public class PlayerLapTracker : MonoBehaviour
 
     [HideInInspector] public string aiName = "";
 
-    private bool raceCompleted = false;
+    [HideInInspector] public bool raceCompleted = false;
     private float raceStartTime = -1f;
     private float lapStartTime = -1f;
     private PhotonCarController cachedCarController;
@@ -131,14 +132,17 @@ public class PlayerLapTracker : MonoBehaviour
         if (checkpointIndex == nextCheckpointIndex)
         {
             nextCheckpointIndex++;
+            passedCheckpoints.Add(checkpointIndex);
 
-            Debug.Log("Checkpoint passed: " + checkpointIndex);
+            Debug.Log($"Checkpoint passed: {checkpointIndex} (next={nextCheckpointIndex}, passed={passedCheckpoints.Count}/{totalCheckpoints})");
 
             UpdateUI();
         }
-        else
+        else if (!passedCheckpoints.Contains(checkpointIndex))
         {
-            Debug.Log("Wrong checkpoint. Expected: " + nextCheckpointIndex + " but got: " + checkpointIndex);
+            passedCheckpoints.Add(checkpointIndex);
+            Debug.Log($"Checkpoint passed (out of order): {checkpointIndex} (expected={nextCheckpointIndex}, passed={passedCheckpoints.Count}/{totalCheckpoints})");
+            UpdateUI();
         }
     }
 
@@ -150,13 +154,16 @@ public class PlayerLapTracker : MonoBehaviour
         if (RaceManager.Instance != null && !RaceManager.Instance.raceStarted)
             return;
 
-        if (nextCheckpointIndex < totalCheckpoints)
+        bool allCheckpointsPassed = passedCheckpoints.Count >= totalCheckpoints || nextCheckpointIndex >= totalCheckpoints;
+
+        if (!allCheckpointsPassed)
         {
-            Debug.Log("Finish line crossed too early. Missing checkpoints.");
+            Debug.Log($"Finish line crossed too early. Checkpoints passed: {passedCheckpoints.Count}/{totalCheckpoints}, nextExpected: {nextCheckpointIndex}");
             return;
         }
 
         nextCheckpointIndex = 0;
+        passedCheckpoints.Clear();
 
         float lapTime = Time.time - lapStartTime;
         lapTimes.Add(lapTime);
@@ -185,7 +192,7 @@ public class PlayerLapTracker : MonoBehaviour
         if (PlayTimeTracker.Instance != null)
             PlayTimeTracker.Instance.StopTracking();
 
-        Debug.Log("Race Finished! Time: " + finishTime.ToString("F2"));
+        Debug.Log($"Race Finished! Time: {finishTime:F2}, AI: '{aiName}', Laps: {currentLap}/{totalLaps}");
 
         if (RaceManager.Instance != null)
         {
@@ -229,11 +236,32 @@ public class PlayerLapTracker : MonoBehaviour
         if (checkpointText != null)
             checkpointText.text = "Race Complete";
 
-        if (isLocal && string.IsNullOrEmpty(aiName))
+        Debug.Log($"FinishRace: isLocal={isLocal}, aiName='{aiName}', firing OnLocalPlayerFinished");
+
+        OnLocalPlayerFinished?.Invoke();
+
+        TryShowFinishPanelDirectly();
+    }
+
+    private void TryShowFinishPanelDirectly()
+    {
+        ResultsPanel rp = FindFirstObjectByType<ResultsPanel>();
+        if (rp != null)
         {
-            Debug.Log("Firing OnLocalPlayerFinished event.");
-            OnLocalPlayerFinished?.Invoke();
+            Debug.Log("FinishRace: Found ResultsPanel, showing it directly");
+            rp.ShowResults();
+            return;
         }
+
+        SinglePlayerFinishPanel sp = FindFirstObjectByType<SinglePlayerFinishPanel>();
+        if (sp != null)
+        {
+            Debug.Log("FinishRace: Found SinglePlayerFinishPanel, showing it directly");
+            sp.ShowStats();
+            return;
+        }
+
+        Debug.LogWarning("FinishRace: No ResultsPanel or SinglePlayerFinishPanel found in scene!");
     }
 
     private void ComputeAverageSpeed()

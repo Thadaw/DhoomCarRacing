@@ -1,5 +1,6 @@
 using UnityEngine;
 using Photon.Pun;
+using System.Collections;
 using System.Collections.Generic;
 
 public class CarSpawner : MonoBehaviour
@@ -127,47 +128,52 @@ public class CarSpawner : MonoBehaviour
 
     private void SpawnAICars()
     {
-        // AI car indices: Car2=1, Car3=2, Car4=4
-        int[] aiIndices = { 1, 2, 4 };
         string[] aiNames = { "AI Player 1", "AI Player 2", "AI Player 3" };
+        float[] aiSkills = { 0.65f, 0.75f, 0.85f };
 
-        // Find race checkpoints to determine spawn positions on the road
-        RaceCheckpoint[] allCheckpoints = FindObjectsByType<RaceCheckpoint>(FindObjectsSortMode.None);
-        System.Array.Sort(allCheckpoints, (a, b) => a.checkpointIndex.CompareTo(b.checkpointIndex));
-
-        // Use the finish line and first checkpoint to determine road direction
-        Vector3 finishPos = Vector3.zero;
-        Vector3 firstCpPos = Vector3.zero;
-        foreach (RaceCheckpoint cp in allCheckpoints)
+        int playerCarIndex = PlayerPrefs.GetInt("CarIndexValue", 0);
+        List<int> availableIndices = new List<int>();
+        for (int i = 0; i < carsPrefabs.Length; i++)
         {
-            if (cp.isFinishLine) finishPos = cp.transform.position;
-            if (cp.checkpointIndex == 0) firstCpPos = cp.transform.position;
+            if (i == playerCarIndex) continue;
+            if (carsPrefabs[i] != null)
+                availableIndices.Add(i);
         }
 
-        // Road direction from finish toward first checkpoint
-        Vector3 roadDir = (firstCpPos - finishPos).normalized;
-        roadDir.y = 0f;
-
-        // Spawn behind the player car along the road direction
-        Vector3 playerPos = spawnedCar.transform.position;
-        float spacing = 5f;
-
-        for (int i = 0; i < aiIndices.Length; i++)
+        if (availableIndices.Count == 0)
         {
-            int prefabIndex = aiIndices[i];
-            if (prefabIndex >= carsPrefabs.Length || carsPrefabs[prefabIndex] == null)
-            {
-                Debug.LogWarning($"CarSpawner: AI car at index {prefabIndex} not found, skipping.");
-                continue;
-            }
+            Debug.LogWarning("CarSpawner: No AI car prefabs available.");
+            return;
+        }
 
-            // Spawn behind player, staggered to the side
-            float lateralOffset = (i == 0) ? -3f : (i == 1) ? 3f : 0f;
-            float rearOffset = spacing * (i + 1);
-            Vector3 spawnPos = playerPos - roadDir * rearOffset + transform.right * lateralOffset;
+        int aiCount = Mathf.Min(3, availableIndices.Count);
+
+        Vector3 roadDir = transform.forward;
+        roadDir.y = 0f;
+        roadDir.Normalize();
+
+        Vector3 rightDir = transform.right;
+        rightDir.y = 0f;
+        rightDir.Normalize();
+
+        Vector3 playerPos = spawnedCar.transform.position;
+
+        Vector3[] lateralOffsets = new Vector3[]
+        {
+            -rightDir * 8f,
+            rightDir * 8f,
+            Vector3.zero
+        };
+
+        float[] forwardOffsets = { -4f, 0f, 8f };
+
+        for (int i = 0; i < aiCount; i++)
+        {
+            int prefabIndex = availableIndices[i];
+
+            Vector3 spawnPos = playerPos + lateralOffsets[i] + roadDir * forwardOffsets[i];
             spawnPos.y = playerPos.y;
 
-            // Rotate AI car to face road direction
             Quaternion spawnRot = Quaternion.LookRotation(roadDir, Vector3.up);
 
             GameObject aiCar = Instantiate(carsPrefabs[prefabIndex], spawnPos, spawnRot);
@@ -187,9 +193,35 @@ public class CarSpawner : MonoBehaviour
             if (!aiCar.TryGetComponent<CarSound>(out _))
                 aiCar.AddComponent<CarSound>();
 
-            AIDriver aiDriver = aiCar.AddComponent<AIDriver>();
+            if (!aiCar.TryGetComponent<AudioSource>(out _))
+                aiCar.AddComponent<AudioSource>();
 
-            Debug.Log($"CarSpawner: Spawned {aiNames[i]} at {spawnPos}");
+            AIDriver aiDriver = aiCar.AddComponent<AIDriver>();
+            aiDriver.skillLevel = aiSkills[i];
+
+            StartCoroutine(InitializeAIDelayed(aiCar, aiNames[i]));
+
+            Debug.Log($"CarSpawner: Spawned {aiNames[i]} at {spawnPos} using prefab[{prefabIndex}] (skill={aiSkills[i]})");
+        }
+    }
+
+    private IEnumerator InitializeAIDelayed(GameObject aiCar, string aiName)
+    {
+        yield return new WaitForSeconds(0.3f);
+
+        if (aiCar == null) yield break;
+
+        AIDriver driver = aiCar.GetComponent<AIDriver>();
+        if (driver != null)
+        {
+            PhotonCarController cc = aiCar.GetComponent<PhotonCarController>();
+            if (cc != null)
+            {
+                WirePhotonCarReferences(aiCar.transform, cc);
+            }
+            driver.Initialize(aiName);
+            // Reset state to ensure clean start for each race
+            driver.ResetForNewRace();
         }
     }
 
@@ -237,7 +269,6 @@ public class CarSpawner : MonoBehaviour
         }
 
         // Sort wheels: front-left, front-right, rear-left, rear-right based on Z position
-        // Front wheels have higher Z (forward), rear wheels have lower Z
         System.Array.Sort(allWheels, (a, b) =>
         {
             bool aFront = a.transform.localPosition.z > 0;
@@ -252,17 +283,16 @@ public class CarSpawner : MonoBehaviour
         if (cc.rearLeftWheel == null) cc.rearLeftWheel = allWheels[2];
         if (cc.rearRightWheel == null) cc.rearRightWheel = allWheels[3];
 
-        // Find wheel mesh transforms by name
-        Transform frontLeftMesh = FindWheelMesh(root, "Wheel_L");
-        Transform frontRightMesh = FindWheelMesh(root, "Wheel_R");
-        Transform rearLeftMesh = FindWheelMesh(root, "Wheel_Back_L");
-        Transform rearRightMesh = FindWheelMesh(root, "Wheel_Back_R");
-
-        // Wire wheel transforms (only if null)
-        if (cc.frontLeftTransform == null) cc.frontLeftTransform = frontLeftMesh;
-        if (cc.frontRightTransform == null) cc.frontRightTransform = frontRightMesh;
-        if (cc.rearLeftTransform == null) cc.rearLeftTransform = rearLeftMesh;
-        if (cc.rearRightTransform == null) cc.rearRightTransform = rearRightMesh;
+        // Wire wheel transforms using collider transforms as fallback
+        // Try to find by common naming conventions, then fall back to collider transforms
+        if (cc.frontLeftTransform == null)
+            cc.frontLeftTransform = FindWheelMesh(root, "Wheel_L", "FrontLeft", "FL") ?? allWheels[0].transform;
+        if (cc.frontRightTransform == null)
+            cc.frontRightTransform = FindWheelMesh(root, "Wheel_R", "FrontRight", "FR") ?? allWheels[1].transform;
+        if (cc.rearLeftTransform == null)
+            cc.rearLeftTransform = FindWheelMesh(root, "Wheel_Back_L", "RearLeft", "RL") ?? allWheels[2].transform;
+        if (cc.rearRightTransform == null)
+            cc.rearRightTransform = FindWheelMesh(root, "Wheel_Back_R", "RearRight", "RR") ?? allWheels[3].transform;
 
         Debug.Log("CarSpawner: Wired " + root.name + " - wheels: " +
             (cc.frontLeftWheel != null) + ", " +
@@ -271,14 +301,20 @@ public class CarSpawner : MonoBehaviour
             (cc.rearRightWheel != null));
     }
 
-    private Transform FindWheelMesh(Transform root, string name)
+    private Transform FindWheelMesh(Transform root, string name1, string name2, string name3)
     {
-        Transform t = root.Find(name);
+        Transform t = root.Find(name1);
         if (t != null) return t;
-        // Fallback: search all children
+        t = root.Find(name2);
+        if (t != null) return t;
+        t = root.Find(name3);
+        if (t != null) return t;
+        // Fallback: search all children by partial name match
         foreach (Transform child in root.GetComponentsInChildren<Transform>())
         {
-            if (child.name == name) return child;
+            string n = child.name.ToLower();
+            if (n.Contains(name1.ToLower()) || n.Contains(name2.ToLower()) || n.Contains(name3.ToLower()))
+                return child;
         }
         return null;
     }

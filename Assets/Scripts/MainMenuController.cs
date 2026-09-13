@@ -53,7 +53,7 @@ public class MainMenuController : MonoBehaviour
                 btn.onClick.AddListener(() => { PlayClickSound(); OnSettingsPressed(); });
         }
 
-        GameObject aiBtn = GameObject.Find("aioponents");
+        GameObject aiBtn = GameObject.Find("aiopponents");
         if (aiBtn != null)
         {
             Button btn = aiBtn.GetComponent<Button>();

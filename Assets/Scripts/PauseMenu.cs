@@ -189,12 +189,24 @@ public class PauseMenu : MonoBehaviour
             string localName = PlayerNameHelper.GetPlayerName();
             players.Add(new PlayerInfo { name = localName, time = 0f, isLocal = true });
             seen.Add(localName);
+
+            PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
+            foreach (PlayerLapTracker tracker in trackers)
+            {
+                if (tracker.aiName != "")
+                {
+                    if (seen.Contains(tracker.aiName)) continue;
+                    seen.Add(tracker.aiName);
+                    players.Add(new PlayerInfo { name = tracker.aiName, time = tracker.finishTime, isLocal = false });
+                }
+            }
+
             return players;
         }
 
-        PlayerLapTracker[] trackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
+        PlayerLapTracker[] allTrackers = FindObjectsByType<PlayerLapTracker>(FindObjectsSortMode.None);
 
-        foreach (PlayerLapTracker tracker in trackers)
+        foreach (PlayerLapTracker tracker in allTrackers)
         {
             PhotonView pv = tracker.GetComponentInParent<PhotonView>();
             string name;
