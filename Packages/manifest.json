@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.unity.ai.assistant": "2.19.0-pre.2",
     "com.unity.inputsystem": "1.7.0",
     "com.unity.mathematics": "1.2.6",
     "com.unity.multiplayer.center": "1.0.1",

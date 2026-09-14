@@ -129,7 +129,7 @@ public class CarSpawner : MonoBehaviour
     private void SpawnAICars()
     {
         string[] aiNames = { "AI Player 1", "AI Player 2", "AI Player 3" };
-        float[] aiSkills = { 0.65f, 0.75f, 0.85f };
+        float[] aiSpeeds = { 75f, 85f, 95f };
 
         int playerCarIndex = PlayerPrefs.GetInt("CarIndexValue", 0);
         List<int> availableIndices = new List<int>();
@@ -140,11 +140,7 @@ public class CarSpawner : MonoBehaviour
                 availableIndices.Add(i);
         }
 
-        if (availableIndices.Count == 0)
-        {
-            Debug.LogWarning("CarSpawner: No AI car prefabs available.");
-            return;
-        }
+        if (availableIndices.Count == 0) return;
 
         int aiCount = Mathf.Min(3, availableIndices.Count);
 
@@ -158,20 +154,24 @@ public class CarSpawner : MonoBehaviour
 
         Vector3 playerPos = spawnedCar.transform.position;
 
-        Vector3[] lateralOffsets = new Vector3[]
+        // AI cars in front, player behind
+        Vector3[] spawnLateralOffsets = new Vector3[]
         {
-            -rightDir * 8f,
-            rightDir * 8f,
-            Vector3.zero
+            -rightDir * 6f,
+            Vector3.zero,
+            rightDir * 6f
         };
 
-        float[] forwardOffsets = { -4f, 0f, 8f };
+        // Move player car behind the AI grid
+        spawnedCar.transform.position = playerPos - roadDir * 10f;
+
+        Vector3 aiStartPos = playerPos + roadDir * 10f;
 
         for (int i = 0; i < aiCount; i++)
         {
             int prefabIndex = availableIndices[i];
 
-            Vector3 spawnPos = playerPos + lateralOffsets[i] + roadDir * forwardOffsets[i];
+            Vector3 spawnPos = aiStartPos + spawnLateralOffsets[i];
             spawnPos.y = playerPos.y;
 
             Quaternion spawnRot = Quaternion.LookRotation(roadDir, Vector3.up);
@@ -197,11 +197,20 @@ public class CarSpawner : MonoBehaviour
                 aiCar.AddComponent<AudioSource>();
 
             AIDriver aiDriver = aiCar.AddComponent<AIDriver>();
-            aiDriver.skillLevel = aiSkills[i];
+            aiDriver.aiName = aiNames[i];
+            aiDriver.aiIndex = i;
+            aiDriver.maxSpeedKmh = aiSpeeds[i];
+
+            // Assign individual waypoints for this AI car
+            if (AITrackGenerator.PerCarWaypoints != null && i < AITrackGenerator.PerCarWaypoints.Length)
+            {
+                List<Transform> carWaypoints = AITrackGenerator.PerCarWaypoints[i];
+                aiDriver.waypoints = carWaypoints.ToArray();
+            }
 
             StartCoroutine(InitializeAIDelayed(aiCar, aiNames[i]));
 
-            Debug.Log($"CarSpawner: Spawned {aiNames[i]} at {spawnPos} using prefab[{prefabIndex}] (skill={aiSkills[i]})");
+            Debug.Log($"CarSpawner: Spawned {aiNames[i]} at {spawnPos} (waypoints={aiDriver.waypoints?.Length ?? 0}, speed={aiSpeeds[i]})");
         }
     }
 
@@ -220,8 +229,6 @@ public class CarSpawner : MonoBehaviour
                 WirePhotonCarReferences(aiCar.transform, cc);
             }
             driver.Initialize(aiName);
-            // Reset state to ensure clean start for each race
-            driver.ResetForNewRace();
         }
     }
 

@@ -35,6 +35,7 @@ public class PlayerLapTracker : MonoBehaviour
     [HideInInspector] public bool raceCompleted = false;
     private float raceStartTime = -1f;
     private float lapStartTime = -1f;
+    private float raceStartDelay = 2f;
     private PhotonCarController cachedCarController;
 
     private static System.Collections.Generic.HashSet<PlayerLapTracker> activeTrackers = new System.Collections.Generic.HashSet<PlayerLapTracker>();
@@ -153,6 +154,12 @@ public class PlayerLapTracker : MonoBehaviour
 
         if (RaceManager.Instance != null && !RaceManager.Instance.raceStarted)
             return;
+
+        if (raceStartTime > 0f && Time.time - raceStartTime < raceStartDelay)
+        {
+            Debug.Log("Finish line ignored - race just started, waiting for cars to move.");
+            return;
+        }
 
         bool allCheckpointsPassed = passedCheckpoints.Count >= totalCheckpoints || nextCheckpointIndex >= totalCheckpoints;
 
