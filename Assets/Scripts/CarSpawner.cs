@@ -129,7 +129,8 @@ public class CarSpawner : MonoBehaviour
     private void SpawnAICars()
     {
         string[] aiNames = { "AI Player 1", "AI Player 2", "AI Player 3" };
-        float[] aiSpeeds = { 75f, 85f, 95f };
+        // Top speeds (km/h) — must line up with AITrackGenerator's per-car speeds.
+        float[] aiSpeeds = { 95f, 105f, 115f };
 
         int playerCarIndex = PlayerPrefs.GetInt("CarIndexValue", 0);
         List<int> availableIndices = new List<int>();
@@ -167,14 +168,38 @@ public class CarSpawner : MonoBehaviour
 
         Vector3 aiStartPos = playerPos + roadDir * 10f;
 
+        // Grid slots: line each AI car up on waypoint 0 of its own racing line.
+        // Those waypoints sit exactly on the start/finish line, 10m apart, so the
+        // cars start on their line and cross the SAME line to complete the lap.
+        Transform[] gridSlots = new Transform[3];
+        if (AITrackGenerator.PerCarWaypoints != null)
+        {
+            for (int i = 0; i < 3 && i < AITrackGenerator.PerCarWaypoints.Length; i++)
+            {
+                List<Transform> line = AITrackGenerator.PerCarWaypoints[i];
+                if (line != null && line.Count > 0)
+                    gridSlots[i] = line[0];
+            }
+        }
+
         for (int i = 0; i < aiCount; i++)
         {
             int prefabIndex = availableIndices[i];
 
-            Vector3 spawnPos = aiStartPos + spawnLateralOffsets[i];
-            spawnPos.y = playerPos.y;
-
-            Quaternion spawnRot = Quaternion.LookRotation(roadDir, Vector3.up);
+            Vector3 spawnPos;
+            Quaternion spawnRot;
+            if (gridSlots[i] != null)
+            {
+                // Start exactly on the start/finish line, on this car's racing line.
+                spawnPos = gridSlots[i].position;
+                spawnRot = gridSlots[i].rotation;
+            }
+            else
+            {
+                spawnPos = aiStartPos + spawnLateralOffsets[i];
+                spawnPos.y = playerPos.y;
+                spawnRot = Quaternion.LookRotation(roadDir, Vector3.up);
+            }
 
             GameObject aiCar = Instantiate(carsPrefabs[prefabIndex], spawnPos, spawnRot);
             aiCar.name = aiNames[i];
@@ -190,11 +215,10 @@ public class CarSpawner : MonoBehaviour
             if (!aiCar.TryGetComponent<PlayerLapTracker>(out _))
                 aiCar.AddComponent<PlayerLapTracker>();
 
-            if (!aiCar.TryGetComponent<CarSound>(out _))
-                aiCar.AddComponent<CarSound>();
-
-            if (!aiCar.TryGetComponent<AudioSource>(out _))
-                aiCar.AddComponent<AudioSource>();
+            // Engine/BGM sound belongs to the real player only — strip any CarSound
+            // that came with the prefab so AI cars stay completely silent.
+            foreach (CarSound sound in aiCar.GetComponentsInChildren<CarSound>(true))
+                Destroy(sound);
 
             AIDriver aiDriver = aiCar.AddComponent<AIDriver>();
             aiDriver.aiName = aiNames[i];

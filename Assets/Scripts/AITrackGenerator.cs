@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Collections;
 using System.Collections.Generic;
 
 public class AITrackGenerator : MonoBehaviour
@@ -11,16 +10,18 @@ public class AITrackGenerator : MonoBehaviour
     public float straightLength = 150f;
     public int resolution = 160;
     public float cornerRadius = 40f;
-    public float roadWidth = 20f;
+    public float roadWidth = 28f;
 
     [Header("AI Path Settings")]
     public int waypointCount = 30;
-    public float leftLateralOffset = -3f;
+    public float leftLateralOffset = -5f;
     public float centerLateralOffset = 0f;
-    public float rightLateralOffset = 3f;
-    public float defaultSpeedKmh = 85f;
-    public float cornerSpeedKmh = 40f;
-    public float straightSpeedKmh = 100f;
+    public float rightLateralOffset = 5f;
+    public float defaultSpeedKmh = 105f;
+    public float cornerSpeedKmh = 50f;
+    public float straightSpeedKmh = 125f;
+    [Tooltip("Lateral acceleration the AI may use in corners (m/s^2). Higher = faster cornering, but too high makes them slide off.")]
+    public float maxLateralAcceleration = 10f;
 
     public static List<Transform>[] PerCarWaypoints { get; private set; }
 
@@ -41,29 +42,20 @@ public class AITrackGenerator : MonoBehaviour
 
     private void Awake()
     {
+        // AI races are always a single lap: cross the finish line once to end the game.
+        if (GameSession.Instance != null)
+            GameSession.Instance.TotalLaps = 1;
+
         DisableExistingMap();
         GenerateNewTrack();
         RepositionCarSpawner();
         GenerateCheckpoints();
+        GenerateFinishLineVisual();
         GeneratePerCarWaypoints();
         EnsureRaceManagerUI();
-        StartCoroutine(ForceStartRaceNextFrame());
-    }
-
-    private IEnumerator ForceStartRaceNextFrame()
-    {
-        yield return null;
-        yield return null;
-        yield return null;
-
-        RaceManager rm = RaceManager.Instance;
-        if (rm != null && !rm.raceStarted)
-        {
-            rm.StopAllCoroutines();
-            rm.raceStarted = true;
-            rm.raceStartTime = Time.time;
-            Debug.Log("AITrackGenerator: Race force-started");
-        }
+        // The regular RaceManager countdown (3 - 2 - 1 - GO) is left untouched now.
+        // It used to be force-killed after 3 frames, which skipped the countdown and
+        // released the cars immediately; cars stay locked until it reaches 0.
     }
 
     private void DisableExistingMap()
@@ -103,8 +95,11 @@ public class AITrackGenerator : MonoBehaviour
         generator.roadWidth = roadWidth;
         generator.cornerRadius = cornerRadius;
         generator.generateOnStart = false;
-        generator.borderHeight = 0.3f;
-        generator.borderWidth = 1f;
+        // No yellow centre line — the road middle must stay clean.
+        generator.drawCenterLine = false;
+        // Solid track-side barrier: tall enough that no car can climb or bounce over it.
+        generator.borderHeight = 1.4f;
+        generator.borderWidth = 1.2f;
         generator.Generate();
 
         // Disable checkpoints that SimpleTrackGenerator creates
@@ -186,14 +181,27 @@ public class AITrackGenerator : MonoBehaviour
 
                 AIWaypoint wp = wpObj.AddComponent<AIWaypoint>();
 
-                // Speed based on curvature
+                // Corner speed from the actual turn radius instead of a blind lerp:
+                //   R = arcLength / turnAngle,  v = sqrt(maxLatAccel * R)
+                // Straights (huge R) simply get this car's top speed. This lets the AI
+                // be fast on the straights while still braking for tight corners.
                 int prev = (i - step + pathPoints.Count) % pathPoints.Count;
-                Vector3 toPrev = (pathPoints[prev] - pathPoints[i]).normalized;
-                Vector3 toNext = (pathPoints[nextIdx] - pathPoints[i]).normalized;
-                toPrev.y = 0; toNext.y = 0;
-                float angle = Vector3.Angle(toPrev, toNext);
-                float curvature = angle / 180f;
-                wp.targetSpeedKmh = Mathf.Lerp(speeds[car], cornerSpeedKmh, curvature);
+                Vector3 toPrev = pathPoints[prev] - pathPoints[i];
+                Vector3 toNext = pathPoints[nextIdx] - pathPoints[i];
+                toPrev.y = 0f;
+                toNext.y = 0f;
+
+                float radiusSpeedKmh = straightSpeedKmh;
+                float angleRad = Vector3.Angle(toPrev, toNext) * Mathf.Deg2Rad;
+                float arcLength = toPrev.magnitude + toNext.magnitude;
+                if (angleRad > 0.0005f && arcLength > 0.01f)
+                {
+                    float radius = arcLength / angleRad;
+                    radiusSpeedKmh = Mathf.Sqrt(maxLateralAcceleration * radius) * 3.6f;
+                }
+
+                float targetSpeed = Mathf.Min(speeds[car], radiusSpeedKmh);
+                wp.targetSpeedKmh = Mathf.Clamp(targetSpeed, cornerSpeedKmh, speeds[car]);
 
                 PerCarWaypoints[car].Add(wpObj.transform);
             }
@@ -261,6 +269,78 @@ public class AITrackGenerator : MonoBehaviour
         finishCP.isFinishLine = true;
 
         Debug.Log($"AITrackGenerator: Created {checkpointCount} checkpoints + finish line");
+    }
+
+    // Puts a visible checkered strip across the road at the start/finish point so
+    // the finish line is unambiguous — it is exactly where the race begins and ends.
+    private void GenerateFinishLineVisual()
+    {
+        SimpleTrackGenerator gen = FindFirstObjectByType<SimpleTrackGenerator>();
+        if (gen == null) return;
+
+        List<Vector3> points = gen.GetPathPoints();
+        if (points.Count < 2) return;
+
+        Vector3 p0 = points[0];
+        Vector3 dir = points[1] - points[0];
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f) return;
+        dir.Normalize();
+
+        GameObject finish = new GameObject("FinishLineVisual");
+        finish.transform.position = new Vector3(p0.x, 0.17f, p0.z);
+        finish.transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+
+        MeshFilter mf = finish.AddComponent<MeshFilter>();
+        MeshRenderer mr = finish.AddComponent<MeshRenderer>();
+
+        float width = roadWidth;
+        float depth = 3f;
+        float cellSize = 1.5f;              // metres per black/white square
+        float repeat = cellSize * 2f;       // texture repeat = 2 squares
+
+        Mesh mesh = new Mesh();
+        mesh.name = "FinishLineVisual";
+        mesh.vertices = new Vector3[]
+        {
+            new Vector3(-width * 0.5f, 0f, -depth * 0.5f),
+            new Vector3( width * 0.5f, 0f, -depth * 0.5f),
+            new Vector3( width * 0.5f, 0f,  depth * 0.5f),
+            new Vector3(-width * 0.5f, 0f,  depth * 0.5f)
+        };
+        mesh.triangles = new int[] { 0, 2, 1, 0, 3, 2 };
+        float uv = 1f / repeat;
+        mesh.uv = new Vector2[]
+        {
+            new Vector2(-width * 0.5f * uv, -depth * 0.5f * uv),
+            new Vector2( width * 0.5f * uv, -depth * 0.5f * uv),
+            new Vector2( width * 0.5f * uv,  depth * 0.5f * uv),
+            new Vector2(-width * 0.5f * uv,  depth * 0.5f * uv)
+        };
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        mf.mesh = mesh;
+
+        Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false)
+        {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Repeat
+        };
+        tex.SetPixels(new Color[]
+        {
+            Color.white, Color.black,
+            Color.black, Color.white
+        });
+        tex.Apply();
+
+        Material mat = new Material(Shader.Find("Standard"))
+        {
+            mainTexture = tex
+        };
+        mat.SetFloat("_Glossiness", 0.2f);
+        mr.material = mat;
+
+        Debug.Log($"AITrackGenerator: Finish point at {p0} — checkered strip {width}m wide");
     }
 
     private void EnsureRaceManagerUI()

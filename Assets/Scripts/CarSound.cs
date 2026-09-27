@@ -24,6 +24,14 @@ public class CarSound : MonoBehaviour
         PhotonCarController cc = GetComponent<PhotonCarController>();
         isLocal = cc != null && cc.isLocalPlayerCar;
 
+        // Car sound (engine + music) belongs to the real player only.
+        // AI cars and other players' cars must stay completely silent.
+        if (!isLocal)
+        {
+            enabled = false;
+            return;
+        }
+
         AudioClip startClip = Resources.Load<AudioClip>("Sounds/start acceleration");
         AudioClip runClip = Resources.Load<AudioClip>("Sounds/caracceleration");
 
@@ -33,11 +41,11 @@ public class CarSound : MonoBehaviour
         {
             startSource = gameObject.AddComponent<AudioSource>();
             startSource.clip = startClip;
-            startSource.loop = true;
+            startSource.loop = false;
             startSource.spatialBlend = 0f;
             startSource.volume = 0.85f;
-            startSource.Play();
-            Debug.Log("CarSound: Playing start acceleration");
+            // Armed but silent — it plays when the countdown reaches GO.
+            Debug.Log("CarSound: Start rev armed (plays at GO)");
         }
         else
         {
@@ -110,8 +118,9 @@ public class CarSound : MonoBehaviour
             raceStarted = true;
             Debug.Log("CarSound: Race started");
 
+            // Launch rev fires exactly when the countdown reaches GO.
             if (startSource != null)
-                startSource.Stop();
+                startSource.Play();
         }
 
         if (!raceStarted) return;
@@ -119,6 +128,10 @@ public class CarSound : MonoBehaviour
         float throttle = Input.GetAxis("Vertical");
         bool braking = Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.Space);
         bool accelerating = throttle > 0.1f && !braking;
+
+        // Hand the audio over to the running engine sound as soon as we drive off.
+        if (accelerating && startSource != null && startSource.isPlaying)
+            startSource.Stop();
 
         if (runSource != null)
         {

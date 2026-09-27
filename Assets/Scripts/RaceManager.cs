@@ -51,6 +51,17 @@ public class RaceManager : MonoBehaviour
 
     private IEnumerator StartCountdown()
     {
+        // Safety: if no countdown UI is wired up, still start the race after the
+        // delay instead of throwing inside the coroutine (which would leave the
+        // race locked forever).
+        if (countdownText == null)
+        {
+            yield return new WaitForSeconds(startDelay);
+            raceStarted = true;
+            raceStartTime = Time.time;
+            yield break;
+        }
+
         yield return new WaitForSeconds(startDelay);
 
         yield return ShowCountdownText("3");
