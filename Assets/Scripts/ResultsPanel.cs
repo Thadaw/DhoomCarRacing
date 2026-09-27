@@ -39,8 +39,27 @@ public class ResultsPanel : MonoBehaviour
         mainMenuButton = mainMenu;
         profileButton = profile;
 
+        ConfigurePlayerListLayout();
+
         if (resultsPanel != null)
             resultsPanel.SetActive(false);
+    }
+
+    private void ConfigurePlayerListLayout()
+    {
+        if (playerListParent == null) return;
+
+        VerticalLayoutGroup layout = playerListParent.GetComponent<VerticalLayoutGroup>();
+        if (layout == null)
+            layout = playerListParent.gameObject.AddComponent<VerticalLayoutGroup>();
+
+        layout.childAlignment = TextAnchor.UpperCenter;
+        layout.spacing = 6f;
+        layout.padding = new RectOffset(0, 0, 0, 0);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
     }
 
     private void OnEnable()

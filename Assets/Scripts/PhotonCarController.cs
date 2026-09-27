@@ -187,7 +187,17 @@ public class PhotonCarController : MonoBehaviour
 
     private void HandleBrakes()
     {
-        float currentBrakeForce = isBraking ? brakeForce : 0f;
+        float currentBrakeForce;
+
+        if (useExternalInput)
+        {
+            // AI / external input uses proportional braking (0..1 of brakeForce)
+            currentBrakeForce = Mathf.Clamp01(extBrake) * brakeForce;
+        }
+        else
+        {
+            currentBrakeForce = isBraking ? brakeForce : 0f;
+        }
 
         if (frontLeftWheel != null) frontLeftWheel.brakeTorque = currentBrakeForce;
         if (frontRightWheel != null) frontRightWheel.brakeTorque = currentBrakeForce;

@@ -13,6 +13,7 @@ public class SimpleTrackGenerator : MonoBehaviour
     [Header("Road")]
     public float roadWidth = 20f;
     public float roadThickness = 0.3f;
+    public bool drawCenterLine = true;
     public float borderWidth = 3f;
     public float borderHeight = 2.5f;
     public Material roadMaterial;
@@ -50,7 +51,8 @@ public class SimpleTrackGenerator : MonoBehaviour
         GeneratePath();
         BuildGround();
         BuildRoadSurface();
-        BuildLaneMarkings();
+        if (drawCenterLine)
+            BuildLaneMarkings();
         BuildEdgeLines();
         BuildBorders();
         BuildRoadParts();
@@ -566,9 +568,14 @@ public class SimpleTrackGenerator : MonoBehaviour
             mr.material = mat;
         }
 
-        BoxCollider col = border.AddComponent<BoxCollider>();
-        col.center = new Vector3(0, (borderHeight - 0.2f) * 0.5f, 0);
-        col.size = new Vector3(borderWidth, borderHeight + 0.4f, 1f);
+        // Solid collider for the whole barrier. The strip mesh is a closed prism
+        // (inner face, top, outer face, bottom) running along the entire track, so a
+        // MeshCollider gives the barrier real volume. The old code added a single
+        // BoxCollider sized to one segment but left at the world origin, which meant
+        // the border had no usable collision and cars could drive straight off road.
+        MeshCollider wallCollider = border.AddComponent<MeshCollider>();
+        wallCollider.sharedMesh = mesh;
+        wallCollider.convex = false;
     }
 
     private void BuildRoadParts()

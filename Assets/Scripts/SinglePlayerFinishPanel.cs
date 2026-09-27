@@ -19,7 +19,9 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     private Button mainMenuButton;
     private Button profileButton;
 
-    private float showDelay = 2f;
+    // NOTE: this panel is retired from the finish flow. Every race now ends with the
+    // shared results panel (ResultsPanel), so this component no longer subscribes to
+    // the race-finished event and its panel is never opened automatically.
 
     public void SetupRefs(GameObject panel, TextMeshProUGUI posText, TextMeshProUGUI nameText, TextMeshProUGUI timeText, TextMeshProUGUI lapText, TextMeshProUGUI speedText, TextMeshProUGUI avgSpeedText, Button garage, Button mainMenu, Button profile)
     {
@@ -38,16 +40,6 @@ public class SinglePlayerFinishPanel : MonoBehaviour
             finishPanel.SetActive(false);
 
         Debug.Log("SinglePlayer SetupRefs: panel=" + (finishPanel != null) + " pos=" + (positionText != null) + " name=" + (playerNameText != null) + " time=" + (finishTimeText != null) + " lap=" + (bestLapText != null) + " speed=" + (topSpeedText != null) + " avg=" + (averageSpeedText != null));
-    }
-
-    private void OnEnable()
-    {
-        PlayerLapTracker.OnLocalPlayerFinished += OnRaceFinished;
-    }
-
-    private void OnDisable()
-    {
-        PlayerLapTracker.OnLocalPlayerFinished -= OnRaceFinished;
     }
 
     private void PlayClickSound()
@@ -73,20 +65,6 @@ public class SinglePlayerFinishPanel : MonoBehaviour
             profileButton.onClick.RemoveAllListeners();
             profileButton.onClick.AddListener(() => { PlayClickSound(); GoToProfile(); });
         }
-    }
-
-    private void OnRaceFinished()
-    {
-        if (PhotonNetwork.InRoom)
-            return;
-
-        StartCoroutine(ShowAfterDelay());
-    }
-
-    private IEnumerator ShowAfterDelay()
-    {
-        yield return new WaitForSecondsRealtime(showDelay);
-        ShowStats();
     }
 
     public void ShowStats()

@@ -45,6 +45,21 @@ public class PlayerLapTracker : MonoBehaviour
         activeTrackers.Add(this);
         Debug.Log($"PlayerLapTracker.Start on '{gameObject.name}' (active instances: {activeTrackers.Count})");
 
+        // Prefab/scene instances carry stale serialized progress (some car prefabs
+        // were saved with currentLap=0 and nextCheckpointIndex=1). Always start a
+        // race clean so the FIRST completed lap over the finish line ends the race.
+        currentLap = 1;
+        nextCheckpointIndex = 0;
+        passedCheckpoints.Clear();
+        raceCompleted = false;
+        finishTime = 0f;
+        lapTimes.Clear();
+        speedSamples.Clear();
+        topSpeed = 0f;
+        averageSpeed = 0f;
+        raceStartTime = -1f;
+        lapStartTime = -1f;
+
         AutoDetectCheckpoints();
         ApplyLapSettings();
         UpdateUI();
@@ -196,10 +211,21 @@ public class PlayerLapTracker : MonoBehaviour
 
         ComputeAverageSpeed();
 
-        if (PlayTimeTracker.Instance != null)
+        bool isAIRacer = !string.IsNullOrEmpty(aiName);
+
+        if (!isAIRacer && PlayTimeTracker.Instance != null)
             PlayTimeTracker.Instance.StopTracking();
 
         Debug.Log($"Race Finished! Time: {finishTime:F2}, AI: '{aiName}', Laps: {currentLap}/{totalLaps}");
+
+        if (isAIRacer)
+        {
+            // An AI finishing must not end the player's race: no leaderboard submit,
+            // no results panel and no "local player finished" event. The time stays on
+            // this tracker so the results screen can show the AI's finishing time.
+            Debug.Log($"PlayerLapTracker: AI '{aiName}' finished in {finishTime:F2}s");
+            return;
+        }
 
         if (RaceManager.Instance != null)
         {
@@ -252,6 +278,8 @@ public class PlayerLapTracker : MonoBehaviour
 
     private void TryShowFinishPanelDirectly()
     {
+        // Only the shared (multiplayer-style) results panel opens after a race —
+        // the single-player finish panel is retired and must never be shown.
         ResultsPanel rp = FindFirstObjectByType<ResultsPanel>();
         if (rp != null)
         {
@@ -260,15 +288,7 @@ public class PlayerLapTracker : MonoBehaviour
             return;
         }
 
-        SinglePlayerFinishPanel sp = FindFirstObjectByType<SinglePlayerFinishPanel>();
-        if (sp != null)
-        {
-            Debug.Log("FinishRace: Found SinglePlayerFinishPanel, showing it directly");
-            sp.ShowStats();
-            return;
-        }
-
-        Debug.LogWarning("FinishRace: No ResultsPanel or SinglePlayerFinishPanel found in scene!");
+        Debug.LogWarning("FinishRace: No ResultsPanel found in scene!");
     }
 
     private void ComputeAverageSpeed()
