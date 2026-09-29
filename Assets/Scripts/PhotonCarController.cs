@@ -48,9 +48,28 @@ public class PhotonCarController : MonoBehaviour
     public float driftFactor = 0.92f;
     public float antiRollForce = 6000f;
 
+    [Header("Drifting")]
+    [Tooltip("rear brake torque while the handbrake (space) is held , locks the rears to start a drift")]
+    public float handbrakeForce = 6000f;
+    [Tooltip("rear sideways friction multiplier while drifting , lower = rear breaks loose easier")]
+    [Range(0.1f, 1f)] public float driftRearGrip = 0.45f;
+    [Tooltip("extra yaw torque while drifting so the car hooks into the slide , 0 = off")]
+    [Range(0f, 10f)] public float driftYawAssist = 3f;
+    [Range(0f, 100f)] public float driftAssistMinKPH = 20f;
+    [Tooltip("rear sideways slip considered 'drifting' even without the handbrake")]
+    [Range(0.1f, 2f)] public float driftSlipThreshold = 0.4f;
+    [Tooltip("how fast the car enters / exits the loose drift grip")]
+    public float driftGripEnterSpeed = 8f;
+    public float driftGripExitSpeed = 5f;
+    [HideInInspector] public float driftAmount; // 0 = gripping , 1 = full drift (read by camera fx)
+
+    private float baseRearLeftStiffness;
+    private float baseRearRightStiffness;
+    private bool driftSetupDone;
+
     private float throttleInput;
     private float steeringInput;
-    private bool isBraking;
+    private bool isBraking;   // space = handbrake (rear lock) for the local car
 
     private void Start()
     {
@@ -70,6 +89,25 @@ public class PhotonCarController : MonoBehaviour
             carRb.centerOfMass = centerOfMass.localPosition;
 
         carRb.interpolation = RigidbodyInterpolation.Interpolate;
+
+        SetupDrift();
+    }
+
+    private void SetupDrift()
+    {
+        if (rearLeftWheel == null || rearRightWheel == null) return;   // retry until refs are wired
+        if (driftSetupDone) return;
+        driftSetupDone = true;
+
+        // remember the prefab's rear grip so drift grip scaling always starts from it
+        baseRearLeftStiffness = rearLeftWheel.sidewaysFriction.stiffness;
+        baseRearRightStiffness = rearRightWheel.sidewaysFriction.stiffness;
+
+        // black tire marks under the wheels while skidding
+        TireMarks.Ensure(gameObject, new WheelCollider[] { frontLeftWheel, frontRightWheel, rearLeftWheel, rearRightWheel });
+
+        // skid sound , volume follows the wheel slip amount
+        SkidSound.Ensure(gameObject, this);
     }
 
     private void FixedUpdate()
@@ -108,12 +146,17 @@ public class PhotonCarController : MonoBehaviour
 
         GetInputs();
 
+        SetupDrift();
+        UpdateDriftAmount();
+
         HandleMotor();
         HandleSteering();
         HandleBrakes();
+        ApplyRearGrip();
 
         ApplyDownforce();
         ApplyDriftControl();
+        ApplyDriftAssist();
         ApplyAntiRoll();
 
         UpdateWheels();
@@ -187,22 +230,87 @@ public class PhotonCarController : MonoBehaviour
 
     private void HandleBrakes()
     {
-        float currentBrakeForce;
+        float frontBrake;
+        float rearBrake;
 
         if (useExternalInput)
         {
             // AI / external input uses proportional braking (0..1 of brakeForce)
-            currentBrakeForce = Mathf.Clamp01(extBrake) * brakeForce;
+            frontBrake = rearBrake = Mathf.Clamp01(extBrake) * brakeForce;
+        }
+        else if (isBraking)
+        {
+            // handbrake: lock ONLY the rear wheels so the back steps out and the car rotates
+            frontBrake = 0f;
+            rearBrake = handbrakeForce;
         }
         else
         {
-            currentBrakeForce = isBraking ? brakeForce : 0f;
+            // S / down arrow = braking while rolling forward , reverse once nearly stopped
+            float brakeInput = Mathf.Clamp01(-throttleInput) * (CarSpeed() > 1f ? 1f : 0f);
+            frontBrake = rearBrake = brakeInput * brakeForce;
         }
 
-        if (frontLeftWheel != null) frontLeftWheel.brakeTorque = currentBrakeForce;
-        if (frontRightWheel != null) frontRightWheel.brakeTorque = currentBrakeForce;
-        if (rearLeftWheel != null) rearLeftWheel.brakeTorque = currentBrakeForce;
-        if (rearRightWheel != null) rearRightWheel.brakeTorque = currentBrakeForce;
+        if (frontLeftWheel != null) frontLeftWheel.brakeTorque = frontBrake;
+        if (frontRightWheel != null) frontRightWheel.brakeTorque = frontBrake;
+        if (rearLeftWheel != null) rearLeftWheel.brakeTorque = rearBrake;
+        if (rearRightWheel != null) rearRightWheel.brakeTorque = rearBrake;
+    }
+
+    // 0 = gripping , 1 = full drift — handbrake held or rear wheels sliding
+    private void UpdateDriftAmount()
+    {
+        if (!driftSetupDone)
+        {
+            driftAmount = 0f;
+            return;
+        }
+
+        bool handbrake = !useExternalInput && isBraking;
+
+        float rearSlip = 0f;
+        int rearCount = 0;
+        if (rearLeftWheel.GetGroundHit(out WheelHit hitL)) { rearSlip += Mathf.Abs(hitL.sidewaysSlip); rearCount++; }
+        if (rearRightWheel.GetGroundHit(out WheelHit hitR)) { rearSlip += Mathf.Abs(hitR.sidewaysSlip); rearCount++; }
+        if (rearCount > 0) rearSlip /= rearCount;
+
+        float target = (handbrake || rearSlip > driftSlipThreshold) ? 1f : 0f;
+        float speed = target > driftAmount ? driftGripEnterSpeed : driftGripExitSpeed;
+        driftAmount = Mathf.MoveTowards(driftAmount, target, Time.fixedDeltaTime * speed);
+    }
+
+    // loosens the rear tyres while drifting so the slide is easy to start and hold
+    private void ApplyRearGrip()
+    {
+        if (!driftSetupDone) return;
+
+        float scale = Mathf.Lerp(1f, driftRearGrip, driftAmount);
+
+        if (rearLeftWheel != null)
+        {
+            WheelFrictionCurve f = rearLeftWheel.sidewaysFriction;
+            f.stiffness = baseRearLeftStiffness * scale;
+            rearLeftWheel.sidewaysFriction = f;
+        }
+        if (rearRightWheel != null)
+        {
+            WheelFrictionCurve f = rearRightWheel.sidewaysFriction;
+            f.stiffness = baseRearRightStiffness * scale;
+            rearRightWheel.sidewaysFriction = f;
+        }
+    }
+
+    // yaw torque while drifting so the car rotates into the slide , follows steer input so counter steer still works
+    private void ApplyDriftAssist()
+    {
+        if (driftYawAssist <= 0f || driftAmount <= 0.01f || carRb == null) return;
+
+        float kph = CarSpeed();
+        if (kph < driftAssistMinKPH) return;
+        if (Mathf.Abs(steeringInput) < 0.05f) return;
+
+        float speedFactor = Mathf.Clamp01(kph / 100f);
+        carRb.AddTorque(transform.up * (steeringInput * driftYawAssist * speedFactor), ForceMode.Acceleration);
     }
 
     private void ApplyDownforce()
@@ -219,7 +327,7 @@ public class PhotonCarController : MonoBehaviour
         Vector3 localVelocity =
             transform.InverseTransformDirection(carRb.linearVelocity);
 
-        localVelocity.x *= driftFactor;
+        localVelocity.x *= Mathf.Lerp(driftFactor, 1f, driftAmount);
 
         carRb.linearVelocity =
             transform.TransformDirection(localVelocity);

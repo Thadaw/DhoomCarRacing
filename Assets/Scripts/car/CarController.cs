@@ -23,6 +23,14 @@ public class CarController : MonoBehaviour {
     //private 
     public bool usingNitrus = false;
     public float _downForce ;
+
+    [Header("drift assist")]
+    [Tooltip("extra yaw torque while drifting so the car hooks into the slide , 0 = off , higher = easier to initiate and hold the drift")]
+    [Range(0, 10)] public float driftAssistTorque = 3f;
+    [Tooltip("minimum speed (kph) before the drift assist kicks in")]
+    [Range(0, 100)] public float driftAssistMinKPH = 20f;
+    [Tooltip("overall sideways slip considered 'drifting' so the assist also works on throttle induced slides without the handbrake")]
+    [Range(0.1f, 1f)] public float driftAssistSlipThreshold = 0.4f;
     
     #endregion
 
@@ -63,6 +71,25 @@ public class CarController : MonoBehaviour {
         stateMachine.rigidbody.angularDamping = stateMachine.KPH * angularVelocityFactor;
         stateMachine.rigidbody.linearDamping = stateMachine.KPH * linearVelocityFactor;
 
+        DriftAssist();
+
+    }
+
+    // adds yaw torque while drifting so the car rotates into the slide easily ,
+    // follows the steer input so counter steering still lets you catch / hold the drift
+    void DriftAssist() {
+        if (driftAssistTorque <= 0f) return;
+        if (stateMachine.KPH < driftAssistMinKPH) return;
+
+        bool handbrake = stateMachine.isSpacebarPressed || Input.GetKey(KeyCode.Space);
+        bool drifting = handbrake || stateMachine.overallSidewaysSlip > driftAssistSlipThreshold;
+        if (!drifting) return;
+
+        if (Mathf.Abs(stateMachine.moveInput.x) < 0.05f) return;
+
+        // stronger with speed , capped so it never overpowers the steering
+        float speedFactor = Mathf.Clamp01(stateMachine.KPH / 100f);
+        stateMachine.rigidbody.AddTorque(transform.up * (stateMachine.moveInput.x * driftAssistTorque * speedFactor), ForceMode.Acceleration);
     }
 
 
@@ -70,15 +97,20 @@ public class CarController : MonoBehaviour {
     public void HandleEeffects() {
         if (Camera.main == null || stateMachine.CarStats == null) return;
 
+        // fov target = base + nitro kick , one clean lerp
+        // (drift fov kick lives in CameraMovement so it works for every car controller stack)
+        float fovTarget = stateMachine.CarStats.inistalFow;
+
         if (  stateMachine.isShiftPressed || usingNitrus) {
             stateMachine.boostNm = stateMachine.CarStats.boostPowerNM;
-            Camera.main.fieldOfView = Mathf.Lerp(Camera.main.fieldOfView,stateMachine.CarStats.inistalFow + stateMachine.CarStats.fowDisplaceAmount, stateMachine.CarStats.fowDisplaceLerpSpeed * Time.deltaTime);
+            fovTarget += stateMachine.CarStats.fowDisplaceAmount;
             SetExhaust(true);
         } else {
             stateMachine.boostNm = 0;
-            Camera.main.fieldOfView = Mathf.Lerp(Camera.main.fieldOfView,stateMachine.CarStats.inistalFow, stateMachine.CarStats.fowDisplaceLerpSpeed * Time.deltaTime);
             SetExhaust(false);
         }
+
+        Camera.main.fieldOfView = Mathf.Lerp(Camera.main.fieldOfView, fovTarget, stateMachine.CarStats.fowDisplaceLerpSpeed * Time.deltaTime);
     }
 
     void CyclePowerupIndex() {

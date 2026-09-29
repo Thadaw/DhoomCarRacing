@@ -102,8 +102,8 @@ public class EngineController : MonoBehaviour {
         int drivenWheels = stateMachine.CarStats.driveMode == driveMode.allWheelDrive ? 4 : 2;
         torquePerWheel = engineRPM >=  maxRPM - (engineRPM * maxRpmProtectVal) ? 0 : (totalPower / drivenWheels) + stateMachine.boostNm;
 
-        // Apply handbrake (only to rear wheels)
-        handBrakeTorque = Input.GetKey(KeyCode.Space) ? handBrakePower : 0f;
+        // Apply handbrake (only to rear wheels) , works with both the legacy key and the input system jump action
+        handBrakeTorque = (Input.GetKey(KeyCode.Space) || stateMachine.isSpacebarPressed) ? handBrakePower : 0f;
 
         // Apply torque based on drive mode
         switch (stateMachine.CarStats.driveMode) {
