@@ -25,6 +25,14 @@ public class MainMenuController : MonoBehaviour
 
         mainCanvas = FindFirstObjectByType<Canvas>();
 
+        // give every main-menu button the same modern hover scale
+        foreach (string buttonName in new[] { "singleplayer", "aiopponents", "Multiplayer", "Garage", "Profile", "setting", "QuitButton" })
+        {
+            GameObject buttonGo = GameObject.Find(buttonName);
+            if (buttonGo != null && buttonGo.GetComponent<Button>() != null && buttonGo.GetComponent<ButtonHoverScale>() == null)
+                buttonGo.AddComponent<ButtonHoverScale>();
+        }
+
         GameObject pnObj = GameObject.Find("playername");
         if (pnObj != null)
             playerNameText = pnObj.GetComponent<TMP_Text>();
@@ -216,6 +224,7 @@ public class MainMenuController : MonoBehaviour
 
         Button btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
+        go.AddComponent<ButtonHoverScale>();
 
         GameObject labelGo = new GameObject("Label", typeof(RectTransform));
         labelGo.transform.SetParent(go.transform, false);

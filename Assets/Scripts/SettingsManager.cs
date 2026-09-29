@@ -556,6 +556,7 @@ public class SettingsManager : MonoBehaviour
         Button btn = btnGO.AddComponent<Button>();
         btn.targetGraphic = btnImg;
         btn.onClick.AddListener(onClick);
+        btnGO.AddComponent<ButtonHoverScale>();
 
         // Button text
         GameObject textGO = new GameObject("Text", typeof(RectTransform));
