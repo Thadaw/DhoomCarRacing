@@ -111,6 +111,9 @@ public class PhotonCarController : MonoBehaviour
 
         // tyre smoke while drifting
         DriftSmoke.Ensure(gameObject, this);
+
+        // red back lights while braking or drifting
+        BrakeLight.Ensure(gameObject, this);
     }
 
     private void FixedUpdate()
@@ -436,4 +439,12 @@ public class PhotonCarController : MonoBehaviour
     // Exposed so systems like CarSound can react to real driving input
     // instead of polling Input directly (which ignores external input).
     public float ThrottleInput => throttleInput;
+
+    // true while the brakes are actually biting — handbrake (space) , foot brake (S while
+    // rolling forward) or AI/external brake input. Drives the brake lights.
+    public bool IsBraking =>
+        useExternalInput ? extBrake > 0.1f
+        : isBraking ? true                             // handbrake locks the rears
+        : throttleInput < -0.1f                        // brake pedal pressed
+          && (carRb == null || Vector3.Dot(carRb.linearVelocity, transform.forward) > 1f);
 }
