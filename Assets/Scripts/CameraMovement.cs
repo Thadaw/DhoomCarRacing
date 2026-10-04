@@ -24,16 +24,11 @@ public class CameraMovement : MonoBehaviour
     [SerializeField] private float maxShakeAmount = 0.08f;
 
     [Header("Drift Feel")]
-    [Tooltip("how much the camera banks (rolls) while drifting , negative flips the direction")]
-    [SerializeField] private float driftRollAngle = 6f;
-    [SerializeField] private float driftRollLerpSpeed = 5f;
     [Tooltip("extra field of view while drifting , 0 = off")]
     [SerializeField] private float driftFovKick = 8f;
     [SerializeField] private float driftFovLerpSpeed = 5f;
 
     private Vector3 currentVelocity;
-    private float currentRoll;
-    private WheelsManager carWheels;
     private PhotonCarController photonCar;
     private Camera cam;
     private float baseFov;
@@ -48,6 +43,20 @@ public class CameraMovement : MonoBehaviour
     {
         if (playerCarTransform == null)
             return;
+
+        // The scene-serialized rb points at a PREFAB ASSET (never simulated, so its
+        // velocity is always 0) and SetTarget is often called without an rb — that is
+        // why speed zoom / shake never fired in single player while multiplayer (which
+        // passes the real rb) worked. Bind to the rigidbody of the car we actually
+        // follow, whatever mode we are in.
+        if (playerCarRb == null || !IsRbPartOfTarget())
+        {
+            Rigidbody found = playerCarTransform.GetComponent<Rigidbody>();
+            if (found == null)
+                found = playerCarTransform.GetComponentInParent<Rigidbody>();
+            if (found != null)
+                playerCarRb = found;
+        }
 
         float speed = 0f;
 
@@ -108,15 +117,24 @@ public class CameraMovement : MonoBehaviour
             rotationSmoothSpeed * Time.deltaTime
         );
 
-        ApplyDriftRoll();
+        // NOTE: the camera never banks (rolls) with the drift , rotation only follows
+        // the car so multiplayer matches the single player camera while drifting
         ApplyDriftFov();
     }
 
-    // drift amount from whichever car controller stack this car uses
+    // true when the rigidbody belongs to the car we are following (self, parent or child)
+    private bool IsRbPartOfTarget()
+    {
+        Transform rbT = playerCarRb.transform;
+        return rbT == playerCarTransform
+            || rbT.IsChildOf(playerCarTransform)
+            || playerCarTransform.IsChildOf(rbT);
+    }
+
+    // drift amount from the car controller (PhotonCarController drives every car)
     private float GetDriftAmount()
     {
         if (photonCar != null) return photonCar.driftAmount;
-        if (carWheels != null) return carWheels.driftAmount;
         return 0f;
     }
 
@@ -124,49 +142,22 @@ public class CameraMovement : MonoBehaviour
     private void ApplyDriftFov()
     {
         if (cam == null || driftFovKick <= 0f) return;
-        if (photonCar == null && carWheels == null) return;   // no drift system on this car
+
+        // fetch the controller lazily so the kick also works when the target
+        // was assigned by a scene reference instead of SetTarget
+        if (photonCar == null && playerCarTransform != null)
+            photonCar = playerCarTransform.GetComponent<PhotonCarController>();
+
+        if (photonCar == null) return;   // no drift system on this car
 
         float targetFov = baseFov + driftFovKick * GetDriftAmount();
         cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFov, driftFovLerpSpeed * Time.deltaTime);
     }
 
-    // banks the camera into the drift , scaled by the car's drift amount and yaw rate
-    private void ApplyDriftRoll()
-    {
-        if (carWheels == null && photonCar == null && playerCarTransform != null)
-        {
-            carWheels = playerCarTransform.GetComponent<WheelsManager>();
-            photonCar = playerCarTransform.GetComponent<PhotonCarController>();
-        }
-
-        // SetTarget is often called without the rb , fetch it so yaw rate / speed effects still work
-        if (playerCarRb == null && playerCarTransform != null)
-            playerCarRb = playerCarTransform.GetComponent<Rigidbody>();
-
-        float targetRoll = 0f;
-
-        if (driftRollAngle != 0f && (carWheels != null || photonCar != null))
-        {
-            float yawRate = playerCarRb != null
-                ? Vector3.Dot(playerCarRb.angularVelocity, playerCarTransform.up)
-                : 0f;
-
-            // full roll when rotating at 1 rad/s or more , only while actually drifting
-            targetRoll = Mathf.Clamp(yawRate, -1f, 1f) * driftRollAngle * GetDriftAmount();
-        }
-
-        currentRoll = Mathf.Lerp(currentRoll, targetRoll, driftRollLerpSpeed * Time.deltaTime);
-
-        if (Mathf.Abs(currentRoll) > 0.01f)
-            transform.rotation = Quaternion.AngleAxis(currentRoll, transform.forward) * transform.rotation;
-    }
-
     public void SetTarget(Transform target, Rigidbody rb = null)
     {
         playerCarTransform = target;
-        carWheels = playerCarTransform != null ? playerCarTransform.GetComponent<WheelsManager>() : null;
         photonCar = playerCarTransform != null ? playerCarTransform.GetComponent<PhotonCarController>() : null;
-        currentRoll = 0f;
 
         if (rb != null)
             playerCarRb = rb;

@@ -21,8 +21,6 @@ public class NetworkCarManager : MonoBehaviour
     public float groundRaycastDistance = 20f;
     public float groundSnapOffset = 0.1f;
 
-    private Dictionary<int, GameObject> allCars = new Dictionary<int, GameObject>();
-
     // Track whether this client has already spawned its car for the current race scene
     private bool hasSpawnedLocal = false;
 
@@ -126,21 +124,9 @@ public class NetworkCarManager : MonoBehaviour
             }
         }
 
-        // Try objects tagged "SpawnPoint"
-        try
-        {
-            var gos = GameObject.FindGameObjectsWithTag("SpawnPoint");
-            if (gos != null && gos.Length > 0)
-            {
-                var pts = new Transform[gos.Length];
-                for (int i = 0; i < gos.Length; i++) pts[i] = gos[i].transform;
-                spawnPoints = pts;
-                return;
-            }
-        }
-        catch { }
-
         // Fallback: generate race grid around CarSpawner
+        // (the "SpawnPoint" tag lookup was removed — that tag does not exist in
+        // ProjectSettings/TagManager.asset, so FindGameObjectsWithTag always threw.)
         var spawners = FindObjectsByType<CarSpawner>(FindObjectsSortMode.None);
         if (spawners != null && spawners.Length > 0)
         {
@@ -234,20 +220,5 @@ public class NetworkCarManager : MonoBehaviour
 
         GameObject go = PhotonNetwork.Instantiate(networkCarPrefabName, pos, rot, 0, instantiationData);
         return go;
-    }
-
-    public void RegisterCar(int viewId, GameObject car)
-    {
-        if (!allCars.ContainsKey(viewId))
-        {
-            allCars.Add(viewId, car);
-        }
-    }
-
-    public GameObject GetCar(int viewId)
-    {
-        if (allCars.TryGetValue(viewId, out GameObject car))
-            return car;
-        return null;
     }
 }

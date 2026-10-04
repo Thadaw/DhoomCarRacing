@@ -4305,8 +4305,6 @@ MonoBehaviour:
   maxExtraDistance: 3
   shakeStartSpeed: 120
   maxShakeAmount: 0.08
-  driftRollAngle: 6
-  driftRollLerpSpeed: 5
   driftFovKick: 8
   driftFovLerpSpeed: 5
 --- !u!1 &1514221770

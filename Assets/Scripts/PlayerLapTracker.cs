@@ -213,10 +213,19 @@ public class PlayerLapTracker : MonoBehaviour
 
         bool isAIRacer = !string.IsNullOrEmpty(aiName);
 
-        if (!isAIRacer && PlayTimeTracker.Instance != null)
+        // In multiplayer every client also simulates the other players' cars, so
+        // the local copy of a REMOTE player's tracker crosses the finish line here
+        // as well. Only the local player's own finish may end the race / stop the
+        // timer / show the results panel on this client — otherwise the first
+        // finisher popped the panel for everybody and the players still out on
+        // track could no longer reach the line.
+        PhotonView pv = GetComponentInParent<PhotonView>();
+        bool isLocal = !PhotonNetwork.InRoom || pv == null || pv.IsMine;
+
+        if (!isAIRacer && isLocal && PlayTimeTracker.Instance != null)
             PlayTimeTracker.Instance.StopTracking();
 
-        Debug.Log($"Race Finished! Time: {finishTime:F2}, AI: '{aiName}', Laps: {currentLap}/{totalLaps}");
+        Debug.Log($"Race Finished! Time: {finishTime:F2}, AI: '{aiName}', Laps: {currentLap}/{totalLaps}, isLocal={isLocal}");
 
         if (isAIRacer)
         {
@@ -227,15 +236,21 @@ public class PlayerLapTracker : MonoBehaviour
             return;
         }
 
+        if (!isLocal)
+        {
+            // Another player finished. Their time stays on this tracker (the results
+            // list reads it), but their own client is the one that shows their
+            // results — this client keeps racing until its own car crosses the line.
+            Debug.Log($"PlayerLapTracker: remote player finished in {finishTime:F2}s - race continues on this client");
+            return;
+        }
+
         if (RaceManager.Instance != null)
         {
             RaceManager.Instance.raceFinished = true;
         }
 
-        PhotonView pv = GetComponentInParent<PhotonView>();
-        bool isLocal = (pv != null && pv.IsMine) || (pv == null);
-
-        if (isLocal && pv != null && PhotonNetwork.InRoom)
+        if (pv != null && PhotonNetwork.InRoom)
         {
             float bestLap = 0f;
             if (lapTimes != null && lapTimes.Count > 0)

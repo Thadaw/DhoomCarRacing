@@ -22,6 +22,11 @@ public class ResultsPanel : MonoBehaviour
     private float showDelay = 2f;
     private List<GameObject> spawnedRows = new List<GameObject>();
 
+    // live refresh of the rows while the panel is up — the panel opens as soon
+    // as THIS player finishes, the others are still on track
+    private Coroutine refreshCoroutine;
+    private string lastFinishSignature = "";
+
     // true while the results panel is on screen — RaceHUD watches this to hide
     // the race widgets (minimap / speedometer / lap-time) behind it
     public bool IsShown => resultsPanel != null && resultsPanel.activeInHierarchy;
@@ -116,6 +121,55 @@ public class ResultsPanel : MonoBehaviour
         OpenPanel();
         PopulateLeaderboard();
         PopulatePerformance();
+        StartRefreshLoop();
+    }
+
+    // Keeps the leaderboard in sync while the other players are still racing, so
+    // a finisher that crosses the line after this panel opened doesn't stay on
+    // "DNF". Repaints only when someone's finish state actually changes.
+    private void StartRefreshLoop()
+    {
+        if (refreshCoroutine != null)
+            StopCoroutine(refreshCoroutine);
+
+        lastFinishSignature = BuildFinishSignature();
+        refreshCoroutine = StartCoroutine(RefreshWhileShown());
+    }
+
+    private IEnumerator RefreshWhileShown()
+    {
+        while (IsShown)
+        {
+            yield return new WaitForSecondsRealtime(1.5f);
+
+            if (!IsShown)
+                break;
+
+            string signature = BuildFinishSignature();
+            if (signature == lastFinishSignature)
+                continue;
+
+            lastFinishSignature = signature;
+            PopulateLeaderboard();
+            PopulatePerformance();
+        }
+
+        refreshCoroutine = null;
+    }
+
+    private string BuildFinishSignature()
+    {
+        List<PlayerResult> players = CollectPlayers();
+        players.Sort((a, b) => string.CompareOrdinal(a.playerName, b.playerName));
+
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        foreach (PlayerResult p in players)
+        {
+            sb.Append(p.playerName).Append('|');
+            sb.Append(p.isFinished ? p.finishTime.ToString("F2") : "DNF");
+            sb.Append(';');
+        }
+        return sb.ToString();
     }
 
     private void BindButtons()
@@ -305,9 +359,6 @@ public class ResultsPanel : MonoBehaviour
                 string pname = string.IsNullOrEmpty(player.NickName)
                     ? "Player " + player.ActorNumber : player.NickName;
 
-                if (seen.Contains(pname)) continue;
-                seen.Add(pname);
-
                 float time = 0f;
                 if (player.CustomProperties.TryGetValue("FinishTime", out object ft) && ft is float fTime)
                     time = fTime;
@@ -323,6 +374,26 @@ public class ResultsPanel : MonoBehaviour
                 float bLap = 0f;
                 if (player.CustomProperties.TryGetValue("BestLap", out object bl) && bl is float bestL)
                     bLap = bestL;
+
+                // The rows above come from this client's simulation of every car.
+                // If a remote car's finish crossing never registered locally, fall
+                // back to the stats that player published from their own client so
+                // they don't stay on "DNF" in the list.
+                PlayerResult existing = players.Find(r => r.playerName == pname);
+                if (existing != null)
+                {
+                    if (!existing.isFinished && time > 0f)
+                    {
+                        existing.finishTime = time;
+                        existing.bestLap = Mathf.Max(existing.bestLap, bLap);
+                        existing.topSpeed = Mathf.Max(existing.topSpeed, tSpeed);
+                        existing.averageSpeed = Mathf.Max(existing.averageSpeed, aSpeed);
+                        existing.isFinished = true;
+                    }
+                    continue;
+                }
+
+                seen.Add(pname);
 
                 players.Add(new PlayerResult
                 {

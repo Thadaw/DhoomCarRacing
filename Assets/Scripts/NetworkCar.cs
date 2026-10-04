@@ -134,8 +134,6 @@ public class NetworkCar : MonoBehaviourPun, IPunObservable
         {
             carModel.AddComponent<CarSound>();
         }
-
-        NetworkCarManager.Instance.RegisterCar(photonView.ViewID, carModel);
     }
 
     void Update()
