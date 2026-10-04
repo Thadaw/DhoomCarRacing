@@ -722,7 +722,7 @@ MonoBehaviour:
   rearRightTransform: {fileID: 3310217905551665712}
   carRb: {fileID: 5825474365451351114}
   centerOfMass: {fileID: 7067969881005113270}
-  motorForce: 3500
+  motorForce: 4375
   maxSpeed: 220
   maxSteerAngle: 32
   steeringResponsiveness: 6

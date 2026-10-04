@@ -435,7 +435,7 @@ MonoBehaviour:
   rearRightTransform: {fileID: 2486140841188915958}
   CarCenterOfMassTransform: {fileID: 0}
   Rigidbody: {fileID: 4353970329085563066}
-  motorForce: 500
+  motorForce: 625
   steeringAngle: 30
   brakeForce: 1000
 --- !u!1 &3330691145138974710
