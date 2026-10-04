@@ -174,7 +174,7 @@ MainMenu
                         stats (profile + leaderboard)
 ```
 
-
+---
 ## Team
 
 | Name | Role |
