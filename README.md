@@ -174,27 +174,6 @@ MainMenu
                         stats (profile + leaderboard)
 ```
 
----
-
-## Documentation
-
-Full documentation lives in [`Project_Progress_Reports/`](Project_Progress_Reports/):
-
-- [`DoomCarRacing_Documentation.md`](Project_Progress_Reports/DoomCarRacing_Documentation.md) — full system & script reference
-- [`Project_Progress_Reports.md`](Project_Progress_Reports/Project_Progress_Reports.md) — visit reports
-- PDF/DOCX progress reports (Visits 1–5)
-
----
-
-## Known Issues
-
-- **Multiplayer sync** is position/rotation only — remote cars jitter in corners, collisions are unreliable, and lap progress isn't networked.
-- **Duplicate systems** — two car-physics implementations and two checkpoint systems coexist.
-- **Runtime object lookup** — heavy use of `FindFirstObjectByType` / `GameObject.Find`.
-- **Platform** — `WindowHelper.cs` uses Windows-only P/Invoke; input mixes Input System and Legacy Input Manager.
-- **Security** — Google OAuth credentials hardcoded in source (see [Setup](#4-configure-google-oauth-optional)).
-
----
 
 ## Team
 
