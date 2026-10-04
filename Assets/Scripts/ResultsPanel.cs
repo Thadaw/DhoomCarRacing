@@ -22,6 +22,10 @@ public class ResultsPanel : MonoBehaviour
     private float showDelay = 2f;
     private List<GameObject> spawnedRows = new List<GameObject>();
 
+    // true while the results panel is on screen — RaceHUD watches this to hide
+    // the race widgets (minimap / speedometer / lap-time) behind it
+    public bool IsShown => resultsPanel != null && resultsPanel.activeInHierarchy;
+
     public void SetupRefs(GameObject panel, Transform list, GameObject rowPrefab,
         TextMeshProUGUI pos, TextMeshProUGUI time, TextMeshProUGUI lap,
         TextMeshProUGUI topSpd, TextMeshProUGUI avgSpd,
@@ -188,35 +192,42 @@ public class ResultsPanel : MonoBehaviour
 
         int position = GetLocalPlayerPosition();
 
+        // the Rubik racing style is applied LAST in each block so it can use
+        // the fontSize just set as the auto-size maximum
         if (positionText != null)
         {
             positionText.text = "POSITION: " + position;
             positionText.fontSize = 36;
             positionText.color = new Color(1f, 0.8f, 0f);
+            StyleRowText(positionText);
         }
         if (finishTimeText != null)
         {
             finishTimeText.text = "TIME: " + (localPlayer.isFinished ? FormatTime(localPlayer.finishTime) : "DNF");
             finishTimeText.fontSize = 32;
             finishTimeText.color = new Color(0f, 0.9f, 1f);
+            StyleRowText(finishTimeText);
         }
         if (bestLapText != null)
         {
             bestLapText.text = "BEST LAP: " + (localPlayer.bestLap > 0f ? FormatTime(localPlayer.bestLap) : "--");
             bestLapText.fontSize = 32;
             bestLapText.color = new Color(0f, 1f, 0.4f);
+            StyleRowText(bestLapText);
         }
         if (topSpeedText != null)
         {
             topSpeedText.text = "TOP SPEED: " + (localPlayer.topSpeed > 0f ? localPlayer.topSpeed.ToString("0") + " KM/H" : "--");
             topSpeedText.fontSize = 32;
             topSpeedText.color = new Color(1f, 0.4f, 0f);
+            StyleRowText(topSpeedText);
         }
         if (averageSpeedText != null)
         {
             averageSpeedText.text = "AVG SPEED: " + (localPlayer.averageSpeed > 0f ? localPlayer.averageSpeed.ToString("0") + " KM/H" : "--");
             averageSpeedText.fontSize = 32;
             averageSpeedText.color = new Color(1f, 0.6f, 0.2f);
+            StyleRowText(averageSpeedText);
         }
     }
 
@@ -370,6 +381,12 @@ public class ResultsPanel : MonoBehaviour
             GameObject row = Instantiate(playerRowPrefab, playerListParent);
             row.SetActive(true);
 
+            // transparent row background — 'playerrow 1' carries a translucent
+            // grey Image (a=0.392) behind each entry; the dark panel underneath
+            // reads much better without it
+            Image rowBg = row.GetComponent<Image>();
+            if (rowBg != null) rowBg.enabled = false;
+
             int childCount = 0;
             bool foundAny = false;
             foreach (Transform child in row.transform)
@@ -378,6 +395,11 @@ public class ResultsPanel : MonoBehaviour
                 TextMeshProUGUI tmp = child.GetComponent<TextMeshProUGUI>();
                 if (tmp == null)
                     tmp = child.gameObject.AddComponent<TextMeshProUGUI>();
+
+                // force crisp white at full alpha so no row can inherit a
+                // dimmed/greyed appearance
+                tmp.color = Color.white;
+                tmp.alpha = 1f;
 
                 if (child.name == "playername")
                 {
@@ -411,6 +433,13 @@ public class ResultsPanel : MonoBehaviour
                     Debug.Log("SpawnRow: Fallback set text on '" + child.name + "' to '" + tmp.text + "'");
                     break;
                 }
+            }
+
+            // racing style for every text in the row (name / time / status)
+            foreach (Transform child in row.transform)
+            {
+                TextMeshProUGUI childTmp = child.GetComponent<TextMeshProUGUI>();
+                if (childTmp != null) StyleRowText(childTmp);
             }
 
             LayoutElement le = row.GetComponent<LayoutElement>();
@@ -452,10 +481,46 @@ public class ResultsPanel : MonoBehaviour
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.MidlineLeft;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
+        StyleRowText(tmp);
 
         LayoutElement le = go.AddComponent<LayoutElement>();
         le.preferredWidth = width;
         le.minWidth = 60f;
+    }
+
+    // ------------------------------------------------------------- row styling
+
+    // Racing-style leaderboard text: Rubik Bold (copied into the TMP Resources
+    // folder so it ships in builds), bold + italic + uppercase — reads like a
+    // racing series classification instead of the default LiberationSans.
+    private static TMP_FontAsset racingFont;
+
+    private static TMP_FontAsset RacingFont()
+    {
+        if (racingFont == null)
+            racingFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/RUBIK-BOLD SDF");
+        return racingFont;
+    }
+
+    private static void StyleRowText(TextMeshProUGUI tmp)
+    {
+        TMP_FontAsset font = RacingFont();
+        if (font != null) tmp.font = font;
+        tmp.fontStyle = FontStyles.Bold | FontStyles.Italic;
+        tmp.characterSpacing = 1f;
+        if (!string.IsNullOrEmpty(tmp.text))
+            tmp.text = tmp.text.ToUpperInvariant();
+
+        // Single line, auto-sized to its own rect. At a fixed 36pt with
+        // overflow allowed, a long name ran into the neighbouring columns and
+        // the row below, where the next row's translucent bar veiled it — that
+        // is what made row 2 look greyed-out and unreadable. Auto-size shrinks        // the text until it fits its column instead.
+        float maxSize = tmp.fontSize;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = Mathf.Min(16f, maxSize);
+        tmp.fontSizeMax = maxSize;
     }
 
     private void ClearRows()

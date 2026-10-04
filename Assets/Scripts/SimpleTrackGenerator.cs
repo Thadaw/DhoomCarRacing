@@ -14,6 +14,8 @@ public class SimpleTrackGenerator : MonoBehaviour
     public float roadWidth = 20f;
     public float roadThickness = 0.3f;
     public bool drawCenterLine = true;
+    [Tooltip("Colour of the dashed centre line drawn when drawCenterLine is enabled.")]
+    public Color centerLineColor = new Color(1f, 1f, 0.2f, 0.9f);
     public float borderWidth = 3f;
     public float borderHeight = 2.5f;
     public Material roadMaterial;
@@ -33,6 +35,10 @@ public class SimpleTrackGenerator : MonoBehaviour
     private GameObject checkpointParent;
 
     public static List<Vector3> LastGeneratedPath { get; private set; }
+    // Scene the static path was generated in. Statics survive scene loads, so
+    // consumers must check this before reusing LastGeneratedPath — otherwise a
+    // previous race's track (e.g. the AI oval) gets stamped onto other scenes.
+    public static string LastGeneratedScene { get; private set; }
 
     private void Start()
     {
@@ -59,6 +65,7 @@ public class SimpleTrackGenerator : MonoBehaviour
         BuildCheckpoints();
 
         LastGeneratedPath = new List<Vector3>(pathPoints);
+        LastGeneratedScene = gameObject.scene.name;
 
         Debug.Log($"SimpleTrackGenerator: Generated {pathPoints.Count} path points, {checkpointCount} checkpoints, roadWidth={roadWidth}");
     }
@@ -326,11 +333,12 @@ public class SimpleTrackGenerator : MonoBehaviour
         markingParent.transform.SetParent(transform);
 
         Material centerMat = new Material(Shader.Find("Standard"));
-        centerMat.color = new Color(1f, 1f, 0.2f, 0.9f);
+        centerMat.color = centerLineColor;
         centerMat.SetFloat("_Glossiness", 0.8f);
 
         float markingWidth = 0.5f;
-        float markingHeight = 0.1f;
+        // Road surface sits at y = 0.15 — keep the paint just above it or it is buried.
+        float markingHeight = 0.2f;
         float accumU = 0f;
         float dashLength = 6f;
         float gapLength = 6f;
@@ -354,7 +362,10 @@ public class SimpleTrackGenerator : MonoBehaviour
                 GameObject dash = new GameObject($"CenterDash_{i}");
                 dash.transform.SetParent(markingParent.transform);
                 dash.transform.position = pos;
-                dash.transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+                // CreateQuadMesh builds the quad in the XY plane (standing upright).
+                // Rotate it -90° around its length axis so it lies flat on the road,
+                // otherwise every dash renders as a vertical wall.
+                dash.transform.rotation = Quaternion.LookRotation(dir, Vector3.up) * Quaternion.Euler(-90f, 0f, 0f);
 
                 MeshFilter mf = dash.AddComponent<MeshFilter>();
                 MeshRenderer mr = dash.AddComponent<MeshRenderer>();
@@ -376,7 +387,8 @@ public class SimpleTrackGenerator : MonoBehaviour
         edgeMat.SetFloat("_Glossiness", 0.8f);
 
         float edgeWidth = 0.5f;
-        float edgeHeight = 0.1f;
+        // Above the road surface (y = 0.15) so the white edge lines are visible.
+        float edgeHeight = 0.2f;
         float edgeOffset = roadWidth / 2f - 1f;
 
         CreateEdgeLine(edgeParent.transform, pathPoints, -edgeOffset, edgeMat, edgeWidth, edgeHeight, "LeftEdge");

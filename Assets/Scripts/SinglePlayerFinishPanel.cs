@@ -19,9 +19,42 @@ public class SinglePlayerFinishPanel : MonoBehaviour
     private Button mainMenuButton;
     private Button profileButton;
 
-    // NOTE: this panel is retired from the finish flow. Every race now ends with the
-    // shared results panel (ResultsPanel), so this component no longer subscribes to
-    // the race-finished event and its panel is never opened automatically.
+    private float showDelay = 2f;
+
+    // true while the single-player finish panel is on screen — RaceHUD watches
+    // this to hide the race widgets (minimap / speedometer / lap-time) behind it
+    public bool IsShown => finishPanel != null && finishPanel.activeInHierarchy;
+
+    // Single-player races end on THIS panel. The shared results panel
+    // (ResultsPanel) stays closed for GameMode.SinglePlayer, so the two
+    // panels are never shown for the same run.
+    // The component lives on 'singleplayerresultpanalmanager', which stays
+    // active even while the panel itself is hidden, so this subscription
+    // survives the panel being switched off at scene load.
+    private void OnEnable()
+    {
+        PlayerLapTracker.OnLocalPlayerFinished += OnRaceFinished;
+    }
+
+    private void OnDisable()
+    {
+        PlayerLapTracker.OnLocalPlayerFinished -= OnRaceFinished;
+    }
+
+    private void OnRaceFinished()
+    {
+        if (GameSession.Instance == null
+            || GameSession.Instance.CurrentMode != GameSession.GameMode.SinglePlayer)
+            return;
+
+        StartCoroutine(ShowAfterDelay());
+    }
+
+    private IEnumerator ShowAfterDelay()
+    {
+        yield return new WaitForSecondsRealtime(showDelay);
+        ShowStats();
+    }
 
     public void SetupRefs(GameObject panel, TextMeshProUGUI posText, TextMeshProUGUI nameText, TextMeshProUGUI timeText, TextMeshProUGUI lapText, TextMeshProUGUI speedText, TextMeshProUGUI avgSpeedText, Button garage, Button mainMenu, Button profile)
     {

@@ -76,6 +76,9 @@ public class PauseMenu : MonoBehaviour
         if (toggleButton == null)
         {
             var go = GameObject.Find("PauseButton");
+            // the corner icon in Track1/2/3 + aioponent is named "pause" — without
+            // this fallback, clicking it did nothing (only the ESC key worked)
+            if (go == null) go = GameObject.Find("pause");
             if (go != null) toggleButton = go.GetComponent<Button>();
         }
         if (resumeButton == null)
@@ -161,22 +164,78 @@ public class PauseMenu : MonoBehaviour
 
         List<PlayerInfo> players = CollectPlayers();
 
+        // local player first, everyone else alphabetically — FindObjects order
+        // was arbitrary, so the AI names showed up as "1, 3, 2"
+        players.Sort((a, b) =>
+        {
+            if (a.isLocal != b.isLocal) return a.isLocal ? -1 : 1;
+            return string.Compare(a.name, b.name, System.StringComparison.OrdinalIgnoreCase);
+        });
+
         int count = players.Count;
         float rowHeight = count <= 1 ? 80f : 40f;
         float fontSize = count <= 1 ? 50f : 28f;
 
-        RectTransform listRT = playerListParent.GetComponent<RectTransform>();
-        if (listRT != null)
-        {
-            float totalHeight = Mathf.Max(120f, count * rowHeight + 16f);
-            listRT.sizeDelta = new Vector2(listRT.sizeDelta.x, totalHeight);
-        }
+        // snap the list over the panel's dark background with padding and let the
+        // VerticalLayoutGroup + ContentSizeFitter size it (the manual sizeDelta
+        // below was fought by the fitter anyway)
+        LayoutPlayerList();
 
         for (int i = 0; i < count; i++)
         {
             string entryText = players[i].name;
+            if (players[i].isLocal) entryText += "  (YOU)";
             SpawnPlayerRow(entryText, i, rowHeight, fontSize);
         }
+    }
+
+    // Fit the list over the panel's dark 'bgforplayer' rectangle with padding so
+    // the names sit nicely inside the frame instead of hugging its top-left
+    // corner, and configure the layout components so rows stack centred with
+    // comfortable spacing.
+    private void LayoutPlayerList()
+    {
+        RectTransform list = playerListParent as RectTransform;
+        if (list == null) return;
+
+        // locate the dark background rectangle (a sibling inside pausepanal)
+        RectTransform bg = null;
+        Transform parent = list.parent;
+        if (parent != null)
+        {
+            foreach (Transform child in parent)
+            {
+                if (child.name == "bgforplayer") { bg = child as RectTransform; break; }
+            }
+        }
+
+        if (bg != null)
+        {
+            // both live under the same parent, so the bg rect can be copied
+            // directly. The list keeps a centred pivot, so the ContentSizeFitter
+            // grows the name block symmetrically around the dark area's centre —
+            // it stays clear of the frame border for any number of players.
+            list.anchorMin = bg.anchorMin;
+            list.anchorMax = bg.anchorMax;
+            list.pivot = new Vector2(0.5f, 0.5f);
+            list.anchoredPosition = bg.anchoredPosition;
+            list.sizeDelta = new Vector2(Mathf.Max(120f, bg.sizeDelta.x - 130f), list.sizeDelta.y);
+        }
+
+        VerticalLayoutGroup vlg = playerListParent.GetComponent<VerticalLayoutGroup>();
+        if (vlg == null) vlg = playerListParent.gameObject.AddComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.MiddleCenter;
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+        vlg.spacing = 8f;
+        vlg.padding = new RectOffset(8, 8, 10, 10);
+
+        ContentSizeFitter csf = playerListParent.GetComponent<ContentSizeFitter>();
+        if (csf == null) csf = playerListParent.gameObject.AddComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     }
 
     private List<PlayerInfo> CollectPlayers()
@@ -307,7 +366,7 @@ public class PauseMenu : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.fontStyle = FontStyles.Bold;
         tmp.color = new Color(1f, 0.92f, 0.55f);
-        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        tmp.alignment = TextAlignmentOptions.Center;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.textWrappingMode = TextWrappingModes.NoWrap;
 

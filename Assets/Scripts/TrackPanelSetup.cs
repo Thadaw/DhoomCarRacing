@@ -74,10 +74,10 @@ public class TrackPanelSetup : MonoBehaviour
         }
         SetupSinglePlayerPanelRefs(sp);
 
-        Transform resultPanelT = FindDeep(FindCanvas().transform, "resultpanal");
+        Transform resultPanelT = FindInLoadedScenes("resultpanal");
         if (resultPanelT != null) resultPanelT.gameObject.SetActive(false);
 
-        Transform spPanelT = FindDeep(FindCanvas().transform, "Single Player Finish Panel");
+        Transform spPanelT = FindInLoadedScenes("Single Player Finish Panel");
         if (spPanelT != null) spPanelT.gameObject.SetActive(false);
 
         PauseMenu pm = FindFirstObjectByType<PauseMenu>();
@@ -91,7 +91,7 @@ public class TrackPanelSetup : MonoBehaviour
 
     private void SetupSinglePlayerPanelRefs(SinglePlayerFinishPanel sp)
     {
-        Transform panelT = FindDeep(FindCanvas().transform, "Single Player Finish Panel");
+        Transform panelT = FindInLoadedScenes("Single Player Finish Panel");
         if (panelT == null) return;
 
         GameObject panel = panelT.gameObject;
@@ -106,6 +106,31 @@ public class TrackPanelSetup : MonoBehaviour
         Button profile = FindDeep(panelT, "profile")?.GetComponent<Button>();
 
         sp.SetupRefs(panel, posText, nameText, timeText, lapText, speedText, avgSpeedText, garage, mainMenu, profile);
+    }
+
+    // Do NOT resolve UI through FindFirstObjectByType<Canvas>() here.
+    // RaceHUD creates its own "RaceHUD_Canvas" at runtime, and both it and this
+    // class bootstrap on RuntimeInitializeLoadType.BeforeSceneLoad. Whichever
+    // handler runs first decides what FindFirstObjectByType<Canvas>() returns,
+    // so a canvas-scoped search can silently look under the wrong canvas, fail to
+    // find the panel, and leave the result panel visible for the whole race.
+    // Searching every loaded scene root is independent of that ordering.
+    private Transform FindInLoadedScenes(string name)
+    {
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+        {
+            Scene scene = SceneManager.GetSceneAt(i);
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (root.name == name)
+                    return root.transform;
+
+                Transform found = FindDeep(root.transform, name);
+                if (found != null)
+                    return found;
+            }
+        }
+        return null;
     }
 
     private Transform FindDeep(Transform parent, string name)
@@ -123,7 +148,7 @@ public class TrackPanelSetup : MonoBehaviour
 
     private void SetupResultsPanelRefs(ResultsPanel rp)
     {
-        Transform panelT = FindDeep(FindCanvas().transform, "resultpanal");
+        Transform panelT = FindInLoadedScenes("resultpanal");
         if (panelT == null) return;
 
         GameObject panel = panelT.gameObject;
@@ -145,7 +170,9 @@ public class TrackPanelSetup : MonoBehaviour
 
     private void SetupResultPanel(Canvas canvas)
     {
-        if (GameObject.Find("resultpanal") != null) return;
+        // GameObject.Find only sees active objects, so a hidden panel would look
+        // "missing" here and a duplicate procedural panel would be built over it.
+        if (FindInLoadedScenes("resultpanal") != null) return;
 
         GameObject panel = CreateUIPanel("resultpanal", canvas.transform);
         AddImage(panel, new Color(0.2f, 0.2f, 0.2f, 0.9f));
@@ -175,7 +202,7 @@ public class TrackPanelSetup : MonoBehaviour
 
     private void SetupSinglePlayerPanel(Canvas canvas)
     {
-        if (GameObject.Find("Single Player Finish Panel") != null) return;
+        if (FindInLoadedScenes("Single Player Finish Panel") != null) return;
 
         GameObject panel = CreateUIPanel("Single Player Finish Panel", canvas.transform);
         RectTransform panelRT = panel.GetComponent<RectTransform>();

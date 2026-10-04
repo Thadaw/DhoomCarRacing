@@ -129,8 +129,9 @@ public class CarSpawner : MonoBehaviour
     private void SpawnAICars()
     {
         string[] aiNames = { "AI Player 1", "AI Player 2", "AI Player 3" };
-        // Top speeds (km/h) — must line up with AITrackGenerator's per-car speeds.
-        float[] aiSpeeds = { 95f, 105f, 115f };
+        // Top speeds (km/h) — must line up with AITrackGenerator's per-car speeds
+        // (AITrackGenerator.defaultSpeedKmh ± 10 = 135 / 145 / 155).
+        float[] aiSpeeds = { 135f, 145f, 155f };
 
         int playerCarIndex = PlayerPrefs.GetInt("CarIndexValue", 0);
         List<int> availableIndices = new List<int>();

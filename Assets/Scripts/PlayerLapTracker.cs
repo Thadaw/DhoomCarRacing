@@ -271,24 +271,50 @@ public class PlayerLapTracker : MonoBehaviour
 
         Debug.Log($"FinishRace: isLocal={isLocal}, aiName='{aiName}', firing OnLocalPlayerFinished");
 
+        // The panel components own the show logic and decide by game mode, so the
+        // event is the single trigger. Only fall back to showing directly when
+        // nothing subscribed - otherwise AI/multiplayer runs would show the
+        // results panel twice (once here, once from the delayed event handler).
+        bool hasSubscribers = OnLocalPlayerFinished != null
+            && OnLocalPlayerFinished.GetInvocationList().Length > 0;
+
         OnLocalPlayerFinished?.Invoke();
 
-        TryShowFinishPanelDirectly();
+        if (!hasSubscribers)
+            TryShowFinishPanelDirectly();
     }
 
     private void TryShowFinishPanelDirectly()
     {
-        // Only the shared (multiplayer-style) results panel opens after a race —
-        // the single-player finish panel is retired and must never be shown.
-        ResultsPanel rp = FindFirstObjectByType<ResultsPanel>();
-        if (rp != null)
+        // Fallback path, used only when no panel component subscribed to
+        // OnLocalPlayerFinished. It must follow the same mode routing:
+        // single player shows the single-player panel, everything else
+        // (AI / multiplayer) shows the shared results panel.
+        bool singlePlayer = GameSession.Instance != null
+            && GameSession.Instance.CurrentMode == GameSession.GameMode.SinglePlayer;
+
+        if (singlePlayer)
         {
-            Debug.Log("FinishRace: Found ResultsPanel, showing it directly");
-            rp.ShowResults();
-            return;
+            SinglePlayerFinishPanel sp = FindFirstObjectByType<SinglePlayerFinishPanel>();
+            if (sp != null)
+            {
+                Debug.Log("FinishRace: showing SinglePlayerFinishPanel");
+                sp.ShowStats();
+                return;
+            }
+        }
+        else
+        {
+            ResultsPanel rp = FindFirstObjectByType<ResultsPanel>();
+            if (rp != null)
+            {
+                Debug.Log("FinishRace: showing ResultsPanel");
+                rp.ShowResults();
+                return;
+            }
         }
 
-        Debug.LogWarning("FinishRace: No ResultsPanel found in scene!");
+        Debug.LogWarning("FinishRace: no finish panel available to show!");
     }
 
     private void ComputeAverageSpeed()

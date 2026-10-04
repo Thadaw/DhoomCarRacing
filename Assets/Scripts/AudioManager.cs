@@ -19,6 +19,12 @@ public class AudioManager : MonoBehaviour
     private const float DefaultMusicVolume = 0.12f;
     private const float DefaultSFXVolume = 0.7f;
 
+    // In-game track music stays low and clearly under the car sound (engine sits
+    // at 0.85), so the slider value is capped while the race track is playing.
+    private const float MainGameMusicVolumeCap = 0.15f;
+
+    private bool playingGameMusic;
+
     public void Awake()
     {
         if (instance != null)
@@ -63,15 +69,25 @@ public class AudioManager : MonoBehaviour
         uiSource.mute = sfxMute;
     }
 
+    private void ApplyMusicVolume()
+    {
+        if (!IsReady()) return;
+
+        bool muted = PlayerPrefs.GetInt(MusicMuteKey, 0) == 1;
+        float vol = PlayerPrefs.GetFloat(MusicVolumeKey, DefaultMusicVolume);
+        if (playingGameMusic) vol = Mathf.Min(vol, MainGameMusicVolumeCap);
+
+        musicSource.volume = muted ? 0f : vol;
+        musicSource.mute = muted;
+    }
+
     // --- Music Volume ---
     public void SetMusicVolume(float vol)
     {
         if (!IsReady()) return;
-        vol = Mathf.Clamp01(vol);
-        bool muted = PlayerPrefs.GetInt(MusicMuteKey, 0) == 1;
-        musicSource.volume = muted ? 0f : vol;
-        PlayerPrefs.SetFloat(MusicVolumeKey, vol);
+        PlayerPrefs.SetFloat(MusicVolumeKey, Mathf.Clamp01(vol));
         PlayerPrefs.Save();
+        ApplyMusicVolume();
     }
 
     public float GetMusicVolume()
@@ -99,11 +115,9 @@ public class AudioManager : MonoBehaviour
     public void SetMusicMute(bool muted)
     {
         if (!IsReady()) return;
-        musicSource.mute = muted;
-        if (!muted)
-            musicSource.volume = PlayerPrefs.GetFloat(MusicVolumeKey, DefaultMusicVolume);
         PlayerPrefs.SetInt(MusicMuteKey, muted ? 1 : 0);
         PlayerPrefs.Save();
+        ApplyMusicVolume();
     }
 
     public bool IsMusicMuted()
@@ -135,10 +149,8 @@ public class AudioManager : MonoBehaviour
         musicSource.Stop();
         musicSource.clip = mainMenuMusic;
         musicSource.playOnAwake = true;
-        float vol = PlayerPrefs.GetFloat(MusicVolumeKey, DefaultMusicVolume);
-        bool muted = PlayerPrefs.GetInt(MusicMuteKey, 0) == 1;
-        musicSource.volume = muted ? 0f : vol;
-        musicSource.mute = muted;
+        playingGameMusic = false;
+        ApplyMusicVolume();
         musicSource.Play();
     }
 
@@ -149,10 +161,8 @@ public class AudioManager : MonoBehaviour
         musicSource.Stop();
         musicSource.clip = MainGameMusic;
         musicSource.playOnAwake = true;
-        float vol = PlayerPrefs.GetFloat(MusicVolumeKey, DefaultMusicVolume);
-        bool muted = PlayerPrefs.GetInt(MusicMuteKey, 0) == 1;
-        musicSource.volume = muted ? 0f : vol;
-        musicSource.mute = muted;
+        playingGameMusic = true;
+        ApplyMusicVolume();
         musicSource.Play();
     }
 

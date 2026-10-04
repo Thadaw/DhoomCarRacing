@@ -13,15 +13,15 @@ public class AITrackGenerator : MonoBehaviour
     public float roadWidth = 28f;
 
     [Header("AI Path Settings")]
-    public int waypointCount = 30;
+    public int waypointCount = 60;
     public float leftLateralOffset = -5f;
     public float centerLateralOffset = 0f;
     public float rightLateralOffset = 5f;
-    public float defaultSpeedKmh = 105f;
-    public float cornerSpeedKmh = 50f;
-    public float straightSpeedKmh = 125f;
+    public float defaultSpeedKmh = 145f;
+    public float cornerSpeedKmh = 55f;
+    public float straightSpeedKmh = 170f;
     [Tooltip("Lateral acceleration the AI may use in corners (m/s^2). Higher = faster cornering, but too high makes them slide off.")]
-    public float maxLateralAcceleration = 10f;
+    public float maxLateralAcceleration = 11.5f;
 
     public static List<Transform>[] PerCarWaypoints { get; private set; }
 
@@ -95,8 +95,9 @@ public class AITrackGenerator : MonoBehaviour
         generator.roadWidth = roadWidth;
         generator.cornerRadius = cornerRadius;
         generator.generateOnStart = false;
-        // No yellow centre line — the road middle must stay clean.
-        generator.drawCenterLine = false;
+        // Dashed white centre line down the middle of the AI track.
+        generator.drawCenterLine = true;
+        generator.centerLineColor = Color.white;
         // Solid track-side barrier: tall enough that no car can climb or bounce over it.
         generator.borderHeight = 1.4f;
         generator.borderWidth = 1.2f;
@@ -241,7 +242,8 @@ public class AITrackGenerator : MonoBehaviour
 
             BoxCollider col = cpObj.AddComponent<BoxCollider>();
             col.isTrigger = true;
-            col.size = new Vector3(roadWidth + 4f, 4f, 2f);
+            // 4m deep (was 2m) so a fast car can never tunnel past at high speed.
+            col.size = new Vector3(roadWidth + 4f, 4f, 4f);
 
             RaceCheckpoint cp = cpObj.AddComponent<RaceCheckpoint>();
             cp.checkpointIndex = i;
@@ -262,7 +264,7 @@ public class AITrackGenerator : MonoBehaviour
 
         BoxCollider finishCol = finishObj.AddComponent<BoxCollider>();
         finishCol.isTrigger = true;
-        finishCol.size = new Vector3(roadWidth + 4f, 4f, 2f);
+        finishCol.size = new Vector3(roadWidth + 4f, 4f, 4f);
 
         RaceCheckpoint finishCP = finishObj.AddComponent<RaceCheckpoint>();
         finishCP.checkpointIndex = 0;

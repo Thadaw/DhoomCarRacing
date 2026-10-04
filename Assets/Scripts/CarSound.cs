@@ -9,6 +9,36 @@ public class CarSound : MonoBehaviour
     private bool raceStarted;
     private bool isLocal;
 
+    private PhotonCarController cc;
+    private float prevSpeed;
+    private int prevGear;
+    private float shiftTimer;
+
+    [Header("volume")]
+    [Tooltip("fallback music volume when AudioManager is missing — race BGM stays well below the engine")]
+    [Range(0f, 0.5f)] public float bgmVolume = 0.12f;
+    [Range(0f, 1f)] public float carVolume = 0.85f;
+
+    [Header("engine response")]
+    [Tooltip("engine volume while coasting / idling — the loop never goes fully silent")]
+    [Range(0f, 0.5f)] public float idleVolume = 0.15f;
+    [Tooltip("engine pitch while idling")]
+    [Range(0.4f, 1f)] public float idlePitch = 0.7f;
+    [Tooltip("highest pitch at redline")]
+    [Range(1f, 2f)] public float maxPitch = 1.6f;
+    [Tooltip("how fast the volume chases throttle/speed")]
+    [Range(1f, 40f)] public float volumeResponse = 14f;
+    [Tooltip("how fast the pitch chases the engine RPM")]
+    [Range(1f, 40f)] public float pitchResponse = 9f;
+    [Tooltip("km/h per second of acceleration that counts as a full 'roar' boost")]
+    [Range(20f, 200f)] public float fullRoarAcceleration = 80f;
+
+    [Header("gear shift")]
+    [Tooltip("number of simulated gears the pitch sweeps through")]
+    [Range(2, 8)] public int gearCount = 5;
+    [Tooltip("seconds the engine sound dips while the gearbox shifts")]
+    [Range(0.05f, 0.5f)] public float shiftDuration = 0.2f;
+
     void OnEnable()
     {
         PlayerLapTracker.OnLocalPlayerFinished += StopAllSounds;
@@ -21,7 +51,7 @@ public class CarSound : MonoBehaviour
 
     void Start()
     {
-        PhotonCarController cc = GetComponent<PhotonCarController>();
+        cc = GetComponent<PhotonCarController>();
         isLocal = cc != null && cc.isLocalPlayerCar;
 
         // Car sound (engine + music) belongs to the real player only.
@@ -35,15 +65,13 @@ public class CarSound : MonoBehaviour
         AudioClip startClip = Resources.Load<AudioClip>("Sounds/start acceleration");
         AudioClip runClip = Resources.Load<AudioClip>("Sounds/caracceleration");
 
-        AudioClip bgmClip = Resources.Load<AudioClip>("Sounds/SadenessBGM");
-
         if (startClip != null)
         {
             startSource = gameObject.AddComponent<AudioSource>();
             startSource.clip = startClip;
             startSource.loop = false;
             startSource.spatialBlend = 0f;
-            startSource.volume = 0.85f;
+            startSource.volume = carVolume;
             // Armed but silent — it plays when the countdown reaches GO.
             Debug.Log("CarSound: Start rev armed (plays at GO)");
         }
@@ -59,6 +87,9 @@ public class CarSound : MonoBehaviour
             runSource.loop = true;
             runSource.spatialBlend = 0f;
             runSource.volume = 0f;
+            runSource.pitch = idlePitch;
+            // Loops for the whole race — volume/pitch are shaped every frame below,
+            // so the engine idles quietly instead of cutting out when off-throttle.
             runSource.Play();
             Debug.Log("CarSound: Loaded caracceleration");
         }
@@ -67,19 +98,23 @@ public class CarSound : MonoBehaviour
             Debug.LogWarning("CarSound: Could not load caracceleration clip");
         }
 
-        if (bgmClip != null)
+        // Race BGM normally comes from AudioManager (playMainGame), which respects
+        // the player's music slider/mute settings. We only start our own low-volume
+        // track when AudioManager is missing (Play pressed directly on the race
+        // scene) — exactly one background music is ever playing, never two.
+        if (AudioManager.instance == null)
         {
-            bgmSource = gameObject.AddComponent<AudioSource>();
-            bgmSource.clip = bgmClip;
-            bgmSource.loop = true;
-            bgmSource.spatialBlend = 0f;
-            bgmSource.volume = 0.25f;
-            bgmSource.Play();
-            Debug.Log("CarSound: Playing background music");
-        }
-        else
-        {
-            Debug.LogWarning("CarSound: Could not load background music");
+            AudioClip bgmClip = Resources.Load<AudioClip>("Sounds/SadenessBGM");
+            if (bgmClip != null)
+            {
+                bgmSource = gameObject.AddComponent<AudioSource>();
+                bgmSource.clip = bgmClip;
+                bgmSource.loop = true;
+                bgmSource.spatialBlend = 0f;
+                bgmSource.volume = bgmVolume;
+                bgmSource.Play();
+                Debug.Log("CarSound: AudioManager missing — fallback BGM only");
+            }
         }
     }
 
@@ -124,59 +159,58 @@ public class CarSound : MonoBehaviour
         }
 
         if (!raceStarted) return;
+        if (runSource == null) return;
 
-        float throttle = Input.GetAxis("Vertical");
-        bool braking = Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.Space);
-        bool accelerating = throttle > 0.1f && !braking;
+        // Throttle from the controller so external input is heard too.
+        float throttle = cc != null ? cc.ThrottleInput : Input.GetAxis("Vertical");
+        float gas = Mathf.Max(0f, throttle);
 
-        // Hand the audio over to the running engine sound as soon as we drive off.
-        if (accelerating && startSource != null && startSource.isPlaying)
+        float speed = cc != null ? cc.CarSpeed() : 0f;
+        float maxSpeed = cc != null && cc.maxSpeed > 0f ? cc.maxSpeed : 1f;
+        float speedRatio = Mathf.Clamp01(speed / maxSpeed);
+
+        float dt = Time.deltaTime;
+        float acceleration = dt > 0f ? (speed - prevSpeed) / dt : 0f;
+        prevSpeed = speed;
+        float roar = Mathf.Clamp01(acceleration / fullRoarAcceleration);
+
+        // Launch rev hands over to the engine loop as soon as we open the throttle.
+        if (gas > 0.1f && startSource != null && startSource.isPlaying)
             startSource.Stop();
 
-        if (runSource != null)
-        {
-            if (accelerating)
-            {
-                if (!runSource.isPlaying)
-                    runSource.Play();
+        // --- Simulated gearbox -------------------------------------------------
+        // Pitch climbs inside the current gear (gearT 0 -> 1) and wraps back down
+        // at every shift point — that wrap IS the classic RPM drop. The smoothed
+        // pitch chase turns the jump into a quick burble like a real gear change.
+        float gearPos = Mathf.Clamp(speedRatio, 0f, 0.9999f) * gearCount;
+        int gear = Mathf.Min((int)gearPos, gearCount - 1);
+        float gearT = gearPos - gear;
 
-                runSource.volume = 0.85f;
+        if (gear > prevGear && shiftTimer <= 0f)
+            shiftTimer = shiftDuration;
+        prevGear = gear;
+        if (shiftTimer > 0f) shiftTimer -= dt;
 
-                PhotonCarController cc = GetComponent<PhotonCarController>();
-                if (cc != null)
-                {
-                    float t = Mathf.Clamp01(cc.CarSpeed() / cc.maxSpeed);
-                    runSource.pitch = Mathf.Lerp(0.8f, 1.5f, t);
-                }
-            }
-            else
-            {
-                if (runSource.isPlaying)
-                {
-                    runSource.Stop();
-                    Debug.Log("CarSound: Acceleration stopped - no throttle or braking");
-                }
-                runSource.volume = 0f;
-            }
-        }
-    }
+        // RPM sweep in the gear + throttle revving (strongest at low speed).
+        float rpmNorm = Mathf.Clamp01(0.1f + 0.9f * gearT + gas * 0.15f * (1f - speedRatio));
+        // -----------------------------------------------------------------------
 
-    void OnCollisionEnter(Collision collision)
-    {
-        if (!isLocal) return;
+        // Loudness: throttle first, speed second, plus a roar while actually accelerating.
+        float load = Mathf.Max(gas, speedRatio);
+        float targetVolume = Mathf.Lerp(idleVolume, carVolume,
+            Mathf.Clamp01(load + roar * 0.35f));
 
-        string hitName = collision.gameObject.name.ToLower();
+        float targetPitch = idlePitch + (maxPitch - idlePitch) * rpmNorm + roar * 0.15f;
+        targetPitch = Mathf.Min(targetPitch, maxPitch);
 
-        if (hitName.Contains("checkpoint") || hitName.Contains("laptrigger"))
-            return;
+        // Torque cut during the shift — a short volume dip sells the gear change.
+        if (shiftTimer > 0f)
+            targetVolume *= 0.7f;
 
-        if (collision.gameObject.GetComponent<CarSound>() != null)
-            return;
+        if (!runSource.isPlaying) runSource.Play();
 
-        if (runSource != null && raceStarted)
-        {
-            runSource.Stop();
-            runSource.Play();
-        }
+        // Smooth chase — no volume/pitch popping.
+        runSource.volume = Mathf.Lerp(runSource.volume, targetVolume, dt * volumeResponse);
+        runSource.pitch = Mathf.Lerp(runSource.pitch, targetPitch, dt * pitchResponse);
     }
 }

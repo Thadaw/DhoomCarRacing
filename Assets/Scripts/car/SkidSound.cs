@@ -13,6 +13,10 @@ public class SkidSound : MonoBehaviour {
     [Range(1f, 30f)] public float volumeLerpSpeed = 8f;
     [Tooltip("pitch rises slightly with slip")]
     [Range(1f, 1.5f)] public float maxPitch = 1.15f;
+    [Tooltip("driftAmount below this counts as gripping , no skid sound")]
+    [Range(0f, 0.5f)] public float driftStartAmount = 0.05f;
+    [Tooltip("driftAmount where the skid sound reaches full level")]
+    [Range(0.1f, 1f)] public float driftFullAmount = 0.5f;
 
     private PhotonCarController controller;
     private AudioSource source;
@@ -63,10 +67,15 @@ public class SkidSound : MonoBehaviour {
 
         float slip = AverageSlip();
 
-        // volume target follows the slip amount directly
+        // only while the car is actually drifting (driftAmount = 0 gripping , 1 full drift) :
+        // plain acceleration / braking slip must not trigger the skid loop
+        float driftGate = Mathf.InverseLerp(driftStartAmount, driftFullAmount, controller.driftAmount);
+        if (driftGate <= 0f) slip = 0f;
+
+        // volume target follows the slip amount directly, faded in with the drift
         float targetVolume = slip <= silenceSlipThreshold
             ? 0f
-            : Mathf.InverseLerp(silenceSlipThreshold, fullSlipThreshold, slip) * maxVolume;
+            : Mathf.InverseLerp(silenceSlipThreshold, fullSlipThreshold, slip) * maxVolume * driftGate;
 
         float normalized = maxVolume > 0f ? targetVolume / maxVolume : 0f;
 

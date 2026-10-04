@@ -46,7 +46,23 @@ public class RaceManager : MonoBehaviour
         if (countdownCanvasGroup != null)
             countdownCanvasGroup.alpha = 0f;
 
+        HideFinishPanels();
+
         StartCoroutine(StartCountdown());
+    }
+
+    // A finish panel must never be on screen while the race is running.
+    // TrackPanelSetup already hides both at scene load, but the race can also
+    // (re)start without a scene reload, so enforce it here as well.
+    // GameObject.Find only returns active objects, which is exactly the set
+    // we need to switch off.
+    private void HideFinishPanels()
+    {
+        GameObject resultPanel = GameObject.Find("resultpanal");
+        if (resultPanel != null) resultPanel.SetActive(false);
+
+        GameObject singlePlayerPanel = GameObject.Find("Single Player Finish Panel");
+        if (singlePlayerPanel != null) singlePlayerPanel.SetActive(false);
     }
 
     private IEnumerator StartCountdown()

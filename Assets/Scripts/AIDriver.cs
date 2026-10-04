@@ -10,7 +10,11 @@ public class AIDriver : MonoBehaviour
     public Transform[] waypoints;
     public int currentWaypointIndex = 0;
     public float waypointReachDistance = 10f;
-    [Range(0f, 1f)] public float waypointLookAhead = 0.35f;
+    [Tooltip("seconds of path lookahead — the aim point sits this far ahead of the car along the racing line")]
+    public float lookAheadSeconds = 0.6f;
+    [Tooltip("clamp on that lookahead in metres (short = twitchy , long = wide lines)")]
+    public float minLookahead = 8f;
+    public float maxLookahead = 45f;
     public float lostWaypointDistance = 70f;
 
     [Header("Speed")]
@@ -140,11 +144,13 @@ public class AIDriver : MonoBehaviour
             return;
         }
 
-        // The race is over for this car: it crossed the finish line, or the local
-        // player finished. Stop driving and brake to a halt — without this the AI
-        // kept circulating (and stuck-recovery would make a parked car reverse).
-        bool raceOverForThisCar = (tracker != null && tracker.raceCompleted) ||
-                                  (RaceManager.Instance != null && RaceManager.Instance.raceFinished);
+        // The race is over for THIS car only once it crosses the finish line itself.
+        // The player finishing first must not park the AI — otherwise the AI cars never
+        // complete the race and their times stay DNF. A finished car still brakes to a
+        // halt below, and stuck-recovery never runs on it.
+        bool raceOverForThisCar = tracker != null
+            ? tracker.raceCompleted
+            : (RaceManager.Instance != null && RaceManager.Instance.raceFinished);
         if (raceOverForThisCar)
         {
             HandleFinished();
@@ -233,18 +239,45 @@ public class AIDriver : MonoBehaviour
         }
     }
 
+    // Aim point = a spot on the racing line a fixed TIME ahead of the car , so the
+    // lookahead grows with speed (slow in corners , long on straights) . The old
+    // version lerped toward the NEXT waypoint , which aims across the chord and cuts
+    // every corner — this one always lands ON the path , so the car tracks the exact
+    // line it was given .
     Vector3 GetAimPoint()
     {
+        int count = waypoints.Length;
         Transform target = waypoints[currentWaypointIndex];
         if (target == null)
             return transform.position + transform.forward * 10f;
 
-        Vector3 aim = target.position;
-        Transform next = waypoints[(currentWaypointIndex + 1) % waypoints.Length];
-        if (next != null)
-            aim = Vector3.Lerp(target.position, next.position, waypointLookAhead);
+        float speedMs = rb != null ? rb.linearVelocity.magnitude : 0f;
+        float lookahead = Mathf.Clamp(speedMs * lookAheadSeconds, minLookahead, maxLookahead);
 
-        return aim;
+        Vector3 prev = transform.position;
+        float remaining = lookahead;
+
+        // Walk forward along the waypoint chain until we have covered the lookahead,
+        // then return the exact point on that polyline.
+        for (int i = 0; i < count; i++)
+        {
+            int idx = (currentWaypointIndex + i) % count;
+            if (waypoints[idx] == null) continue;
+
+            Vector3 p = waypoints[idx].position;
+            float seg = Vector3.Distance(prev, p);
+
+            if (seg >= remaining && seg > 0.0001f)
+            {
+                float t = remaining / seg;
+                return Vector3.Lerp(prev, p, t);
+            }
+
+            remaining -= seg;
+            prev = p;
+        }
+
+        return prev;   // whole loop is closer than the lookahead — aim at the last point
     }
 
     void HandleSensors()

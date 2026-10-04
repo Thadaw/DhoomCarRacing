@@ -31,7 +31,7 @@ public class PhotonCarController : MonoBehaviour
     public Transform centerOfMass;
 
     [Header("Engine")]
-    public float motorForce = 3500f;
+    public float motorForce = 4375f;   // +25% over the old 3500 — top speed still capped by maxSpeed
     public float maxSpeed = 220f;
 
     [Header("Steering")]
@@ -108,6 +108,9 @@ public class PhotonCarController : MonoBehaviour
 
         // skid sound , volume follows the wheel slip amount
         SkidSound.Ensure(gameObject, this);
+
+        // tyre smoke while drifting
+        DriftSmoke.Ensure(gameObject, this);
     }
 
     private void FixedUpdate()
@@ -246,8 +249,12 @@ public class PhotonCarController : MonoBehaviour
         }
         else
         {
-            // S / down arrow = braking while rolling forward , reverse once nearly stopped
-            float brakeInput = Mathf.Clamp01(-throttleInput) * (CarSpeed() > 1f ? 1f : 0f);
+            // S / down arrow = brakes only while rolling forward , reverse once stopped .
+            // signed speed matters here: CarSpeed() is a magnitude , so it stays > 1 while
+            // driving backwards too — the brakes would then keep fighting the reverse torque
+            // and the car only creeps a hair before stalling again .
+            float forwardSpeed = carRb != null ? Vector3.Dot(carRb.linearVelocity, transform.forward) : CarSpeed();
+            float brakeInput = Mathf.Clamp01(-throttleInput) * (forwardSpeed > 1f ? 1f : 0f);
             frontBrake = rearBrake = brakeInput * brakeForce;
         }
 
@@ -424,4 +431,9 @@ public class PhotonCarController : MonoBehaviour
         if (carRb == null) return 0f;
         return carRb.linearVelocity.magnitude * 3.6f;
     }
+
+    // Current throttle (positive = gas, negative = brake/reverse).
+    // Exposed so systems like CarSound can react to real driving input
+    // instead of polling Input directly (which ignores external input).
+    public float ThrottleInput => throttleInput;
 }
